@@ -12,7 +12,9 @@ export default async function Admin() {
 
   const { data: loja } = await supabase
     .from("lojas")
-    .select("id, nome, slug, aberta")
+    .select(
+        "id, nome, slug, aberta, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
+      )
     .eq("dono_id", user.id)
     .limit(1)
     .maybeSingle();

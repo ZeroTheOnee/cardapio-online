@@ -3,8 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Aparencia from "./Aparencia";
 
-type Loja = { id: string; nome: string; slug: string; aberta: boolean };
+type Loja = {
+  id: string;
+  nome: string;
+  slug: string;
+  aberta: boolean;
+  cor_principal: string;
+  logo_url: string | null;
+  capa_url: string | null;
+  descricao: string | null;
+  instagram: string | null;
+  endereco_texto: string | null;
+};
 type Categoria = { id: string; nome: string };
 type Produto = {
   id: string;
@@ -84,7 +96,7 @@ export default function Painel({
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-  const [aba, setAba] = useState<"pedidos" | "produtos" | "pagamento">(
+  const [aba, setAba] = useState<"pedidos" | "produtos" | "pagamento" | "aparencia">(
     "pedidos"
   );
   const [aberta, setAberta] = useState(loja.aberta);
@@ -184,7 +196,7 @@ export default function Painel({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {(["pedidos", "produtos", "pagamento"] as const).map((a) => (
+        {(["pedidos", "produtos", "pagamento", "aparencia"] as const).map((a) => (
           <button
             key={a}
             onClick={() => setAba(a)}
@@ -196,7 +208,9 @@ export default function Painel({
               ? `Pedidos (${andamento.length})`
               : a === "produtos"
               ? "Produtos"
-              : "Pagamento"}
+                 : a === "pagamento"
+              ? "Pagamento"
+              : "Aparência"}
           </button>
         ))}
       </div>
@@ -257,6 +271,11 @@ export default function Painel({
             chavePix={chavePix}
             onSalvo={() => router.refresh()}
           />
+        </section>
+      )}
+            {aba === "aparencia" && (
+        <section className="mt-6">
+          <Aparencia loja={loja} />
         </section>
       )}
     </main>
