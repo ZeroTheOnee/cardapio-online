@@ -32,27 +32,36 @@ export default async function Admin() {
     );
   }
 
-  const [{ data: categorias }, { data: produtos }, { data: pedidos }] =
-    await Promise.all([
-      supabase
-        .from("categorias")
-        .select("id, nome")
-        .eq("loja_id", loja.id)
-        .order("ordem"),
-      supabase
-        .from("produtos")
-        .select("id, nome, preco, estoque, ativo, categoria_id")
-        .eq("loja_id", loja.id)
-        .order("nome"),
-      supabase
-        .from("pedidos")
-        .select(
-          "id, status, tipo, total, forma_pagamento, observacao, endereco_entrega, criado_em, clientes(nome, telefone), itens_pedido(nome, quantidade)"
-        )
-        .eq("loja_id", loja.id)
-        .order("criado_em", { ascending: false })
-        .limit(50),
-    ]);
+  const [
+    { data: categorias },
+    { data: produtos },
+    { data: pedidos },
+    { data: pagamento },
+  ] = await Promise.all([
+    supabase
+      .from("categorias")
+      .select("id, nome")
+      .eq("loja_id", loja.id)
+      .order("ordem"),
+    supabase
+      .from("produtos")
+      .select("id, nome, preco, estoque, ativo, categoria_id")
+      .eq("loja_id", loja.id)
+      .order("nome"),
+    supabase
+      .from("pedidos")
+      .select(
+        "id, status, tipo, total, forma_pagamento, pagamento_status, observacao, endereco_entrega, criado_em, clientes(nome, telefone), itens_pedido(nome, quantidade)"
+      )
+      .eq("loja_id", loja.id)
+      .order("criado_em", { ascending: false })
+      .limit(50),
+    supabase
+      .from("lojas_pagamento")
+      .select("chave_pix")
+      .eq("loja_id", loja.id)
+      .maybeSingle(),
+  ]);
 
   return (
     <Painel
@@ -60,6 +69,7 @@ export default async function Admin() {
       categorias={categorias ?? []}
       produtos={produtos ?? []}
       pedidos={pedidos ?? []}
+      chavePix={pagamento?.chave_pix ?? ""}
     />
   );
 }

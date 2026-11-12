@@ -21,6 +21,7 @@ type Pedido = {
   tipo: string;
   total: number;
   forma_pagamento: string;
+  pagamento_status: string;
   observacao: string | null;
   endereco_entrega: {
     rua: string;
@@ -73,15 +74,19 @@ export default function Painel({
   categorias,
   produtos,
   pedidos,
+  chavePix,
 }: {
   loja: Loja;
   categorias: Categoria[];
   produtos: Produto[];
   pedidos: Pedido[];
+  chavePix: string;
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-  const [aba, setAba] = useState<"pedidos" | "produtos">("pedidos");
+  const [aba, setAba] = useState<"pedidos" | "produtos" | "pagamento">(
+    "pedidos"
+  );
   const [aberta, setAberta] = useState(loja.aberta);
 
   // atualiza a lista de pedidos sozinho a cada 15 segundos
@@ -115,6 +120,7 @@ export default function Painel({
     }
     router.refresh();
   }
+
   async function cancelar(id: string) {
     if (!confirm("Cancelar este pedido? O estoque será devolvido.")) return;
     const { error } = await supabase.rpc("cancelar_pedido", {
@@ -126,6 +132,20 @@ export default function Painel({
     }
     router.refresh();
   }
+
+  async function marcarPago(id: string) {
+    if (!confirm("Confirmar que o Pix deste pedido foi recebido?")) return;
+    const { error } = await supabase
+      .from("pedidos")
+      .update({ pagamento_status: "pago" })
+      .eq("id", id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   async function sair() {
     await supabase.auth.signOut();
     router.push("/entrar?loja=admin");
@@ -163,8 +183,8 @@ export default function Painel({
         </div>
       </div>
 
-      <div className="mt-6 flex gap-2">
-        {(["pedidos", "produtos"] as const).map((a) => (
+      <div className="mt-6 flex flex-wrap gap-2">
+        {(["pedidos", "produtos", "pagamento"] as const).map((a) => (
           <button
             key={a}
             onClick={() => setAba(a)}
@@ -172,7 +192,11 @@ export default function Painel({
               aba === a ? "bg-black text-white" : ""
             }`}
           >
-            {a === "pedidos" ? `Pedidos (${andamento.length})` : "Produtos"}
+            {a === "pedidos"
+              ? `Pedidos (${andamento.length})`
+              : a === "produtos"
+              ? "Produtos"
+              : "Pagamento"}
           </button>
         ))}
       </div>
@@ -183,14 +207,26 @@ export default function Painel({
             <p className="text-gray-500">Nenhum pedido em andamento.</p>
           )}
           {andamento.map((p) => (
-            <CartaoPedido key={p.id} p={p} onAvancar={avancar} onCancelar={cancelar} />
+            <CartaoPedido
+              key={p.id}
+              p={p}
+              onAvancar={avancar}
+              onCancelar={cancelar}
+              onPagar={marcarPago}
+            />
           ))}
 
           {finalizados.length > 0 && (
             <>
               <h2 className="pt-4 text-lg font-semibold">Finalizados</h2>
               {finalizados.map((p) => (
-                <CartaoPedido key={p.id} p={p} onAvancar={avancar} onCancelar={cancelar} />
+                <CartaoPedido
+                  key={p.id}
+                  p={p}
+                  onAvancar={avancar}
+                  onCancelar={cancelar}
+                  onPagar={marcarPago}
+                />
               ))}
             </>
           )}
@@ -213,23 +249,38 @@ export default function Painel({
           </div>
         </section>
       )}
+
+      {aba === "pagamento" && (
+        <section className="mt-6">
+          <ConfigPix
+            lojaId={loja.id}
+            chavePix={chavePix}
+            onSalvo={() => router.refresh()}
+          />
+        </section>
+      )}
     </main>
   );
 }
-
 
 function CartaoPedido({
   p,
   onAvancar,
   onCancelar,
+  onPagar,
 }: {
   p: Pedido;
   onAvancar: (id: string, status: string) => void;
   onCancelar: (id: string) => void;
+  onPagar: (id: string) => void;
 }) {
   const cliente = Array.isArray(p.clientes) ? p.clientes[0] : p.clientes;
   const prox = proximo(p);
   const e = p.endereco_entrega;
+  const aguardaPix =
+    p.forma_pagamento === "pix" &&
+    p.pagamento_status === "pendente" &&
+    p.status !== "cancelado";
 
   const fone = cliente?.telefone?.replace(/\D/g, "") ?? "";
   const linkZap = fone
@@ -283,29 +334,96 @@ function CartaoPedido({
         <p className="mt-1 text-sm text-gray-600">Obs.: {p.observacao}</p>
       )}
 
-      <div className="mt-3 flex items-center justify-between">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-bold">{dinheiro(p.total)}</p>
           <p className="text-xs text-gray-500">
             {FORMA_TXT[p.forma_pagamento] ?? p.forma_pagamento}
+            {p.forma_pagamento === "pix" &&
+              (p.pagamento_status === "pago"
+                ? " · Pago ✓"
+                : " · Aguardando pagamento")}
           </p>
         </div>
-                {prox && (
-          <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {aguardaPix && (
             <button
-              onClick={() => onCancelar(p.id)}
-              className="rounded-lg border border-red-600 px-4 py-2 text-red-600"
+              onClick={() => onPagar(p.id)}
+              className="rounded-lg border border-green-700 px-4 py-2 text-green-700"
             >
-              Cancelar
+              Pix recebido
             </button>
-            <button
-              onClick={() => onAvancar(p.id, prox.status)}
-              className="rounded-lg bg-black px-4 py-2 text-white"
-            >
-              {prox.texto}
-            </button>
-          </div>
-        )}
+          )}
+          {prox && (
+            <>
+              <button
+                onClick={() => onCancelar(p.id)}
+                className="rounded-lg border border-red-600 px-4 py-2 text-red-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => onAvancar(p.id, prox.status)}
+                className="rounded-lg bg-black px-4 py-2 text-white"
+              >
+                {prox.texto}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfigPix({
+  lojaId,
+  chavePix,
+  onSalvo,
+}: {
+  lojaId: string;
+  chavePix: string;
+  onSalvo: () => void;
+}) {
+  const [supabase] = useState(() => createClient());
+  const [chave, setChave] = useState(chavePix);
+  const [msg, setMsg] = useState("");
+
+  async function salvar() {
+    const { error } = await supabase.rpc("salvar_chave_pix", {
+      p_loja_id: lojaId,
+      p_chave: chave,
+    });
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    setMsg(chave.trim() ? "Pix ativado ✓" : "Pix desativado ✓");
+    onSalvo();
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <h2 className="text-lg font-semibold">Receber por Pix</h2>
+      <p className="text-sm text-gray-600">
+        Digite a chave Pix da loja (CPF/CNPJ, telefone, e-mail ou chave
+        aleatória). Ela só aparece para o cliente que fizer um pedido com Pix.
+        Deixe em branco para desativar o Pix.
+      </p>
+      <input
+        value={chave}
+        onChange={(e) => setChave(e.target.value)}
+        placeholder="Chave Pix"
+        className={campo}
+      />
+      <div className="flex items-center gap-3">
+        <button
+          onClick={salvar}
+          className="rounded-lg bg-black px-4 py-2 text-white"
+        >
+          Salvar
+        </button>
+        {msg && <span className="text-sm text-gray-600">{msg}</span>}
       </div>
     </div>
   );

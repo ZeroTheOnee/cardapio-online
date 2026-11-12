@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import CopiarPix from "./CopiarPix";
 
 type Item = { nome: string; preco_unitario: number; quantidade: number };
 
@@ -10,6 +11,12 @@ const STATUS: Record<string, string> = {
   saiu_entrega: "Saiu para entrega",
   entregue: "Entregue",
   cancelado: "Cancelado",
+};
+
+const FORMA: Record<string, string> = {
+  pix: "Pix",
+  dinheiro: "Dinheiro na entrega/retirada",
+  cartao_entrega: "Cartão na entrega/retirada",
 };
 
 function dinheiro(valor: number) {
@@ -27,7 +34,7 @@ export default async function Pedido({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, status, tipo, subtotal, taxa_entrega, total, forma_pagamento, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug)"
+      "id, status, tipo, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone)"
     )
     .eq("id", id)
     .single();
@@ -36,7 +43,33 @@ export default async function Pedido({
 
   const itens = pedido.itens_pedido as Item[];
   const lojaRel = Array.isArray(pedido.lojas) ? pedido.lojas[0] : pedido.lojas;
-  const loja = lojaRel as { nome: string; slug: string } | null;
+  const loja = lojaRel as {
+    nome: string;
+    slug: string;
+    telefone: string | null;
+  } | null;
+
+  const mostrarPix =
+    pedido.forma_pagamento === "pix" &&
+    pedido.pagamento_status === "pendente" &&
+    pedido.status !== "cancelado";
+
+  let chavePix: string | null = null;
+  if (mostrarPix) {
+    const { data } = await supabase.rpc("chave_pix_do_pedido", {
+      p_pedido_id: pedido.id,
+    });
+    chavePix = (data as string | null) ?? null;
+  }
+
+  const fone = loja?.telefone?.replace(/\D/g, "") ?? "";
+  const linkZap = fone
+    ? `https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(
+        `Olá! Fiz o pedido ${pedido.id.slice(0, 8)} e paguei o Pix de ${dinheiro(
+          pedido.total
+        )}. Segue o comprovante:`
+      )}`
+    : null;
 
   return (
     <main className="mx-auto max-w-md p-6">
@@ -45,6 +78,51 @@ export default async function Pedido({
       <p className="mt-4 rounded-lg bg-gray-100 p-3 font-medium">
         {STATUS[pedido.status] ?? pedido.status}
       </p>
+
+      {pedido.forma_pagamento === "pix" &&
+        pedido.pagamento_status === "pago" && (
+          <p className="mt-3 rounded-lg bg-green-100 p-3 text-green-800">
+            Pagamento confirmado ✓
+          </p>
+        )}
+
+      {mostrarPix && (
+        <div className="mt-4 rounded-lg border p-4">
+          <p className="font-semibold">Pague com Pix</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Valor: <strong>{dinheiro(pedido.total)}</strong>
+          </p>
+
+          {chavePix ? (
+            <>
+              <p className="mt-3 break-all rounded bg-gray-100 p-3 font-mono text-sm">
+                {chavePix}
+              </p>
+              <CopiarPix chave={chavePix} />
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-red-600">
+              Chave Pix indisponível. Fale com a loja.
+            </p>
+          )}
+
+          <p className="mt-3 text-sm text-gray-600">
+            Depois de pagar, envie o comprovante para a loja. O pagamento será
+            confirmado quando ela receber.
+          </p>
+
+          {linkZap && (
+            <a
+              href={linkZap}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block rounded-lg bg-green-700 px-4 py-2 text-white"
+            >
+              Enviar comprovante no WhatsApp
+            </a>
+          )}
+        </div>
+      )}
 
       <ul className="mt-6 space-y-2">
         {itens.map((i, n) => (
@@ -72,6 +150,9 @@ export default async function Pedido({
           <span>Total</span>
           <span>{dinheiro(pedido.total)}</span>
         </div>
+        <p className="text-gray-500">
+          Pagamento: {FORMA[pedido.forma_pagamento] ?? pedido.forma_pagamento}
+        </p>
       </div>
 
       {loja && (

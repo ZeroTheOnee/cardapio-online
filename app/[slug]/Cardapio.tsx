@@ -20,6 +20,7 @@ type Loja = {
   nome: string;
   taxa_entrega: number;
   aberta: boolean;
+    aceita_pix: boolean;
 };
 
 type Endereco = {
@@ -230,6 +231,9 @@ export default function Cardapio({
                 >
                   <option value="dinheiro">Dinheiro na entrega/retirada</option>
                   <option value="cartao_entrega">Cartão na entrega/retirada</option>
+                                    {loja.aceita_pix && (
+                    <option value="pix">Pix (pagar pelo app do banco)</option>
+                  )}
                 </select>
 
                 <input

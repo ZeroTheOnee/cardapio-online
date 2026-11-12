@@ -12,7 +12,7 @@ export default async function Pagina({
 
   const { data: loja } = await supabase
     .from("lojas")
-    .select("id, nome, taxa_entrega, aberta")
+    .select("id, nome, taxa_entrega, aberta, aceita_pix")
     .eq("slug", slug)
     .single();
 
