@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
+import ProdutoCard from "./ProdutoCard";
 
 type Loja = {
   id: string;
@@ -258,7 +259,7 @@ export default function Painel({
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Seus produtos</h2>
             {produtos.map((p) => (
-              <LinhaProduto key={p.id} p={p} onSalvo={() => router.refresh()} />
+              <ProdutoCard lojaId={loja.id} key={p.id} p={p} onSalvo={() => router.refresh()} />
             ))}
           </div>
         </section>

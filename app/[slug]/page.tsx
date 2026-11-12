@@ -22,7 +22,9 @@ export default async function Pagina({
 
   const { data: categorias } = await supabase
     .from("categorias")
-    .select("id, nome, produtos(id, nome, descricao, preco, estoque, ativo)")
+    .select(
+      "id, nome, produtos(id, nome, descricao, preco, estoque, ativo, imagem_url)"
+    )
     .eq("loja_id", loja.id)
     .order("ordem");
 

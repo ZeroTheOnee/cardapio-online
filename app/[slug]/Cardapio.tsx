@@ -11,6 +11,7 @@ type Produto = {
   preco: number;
   estoque: number;
   ativo: boolean;
+  imagem_url: string | null;
 };
 
 type Categoria = { id: string; nome: string; produtos: Produto[] };
@@ -251,16 +252,26 @@ export default function Cardapio({
                           esgotado ? "opacity-60" : ""
                         }`}
                       >
-                        <div>
-                          <p className="font-medium">{p.nome}</p>
-                          {p.descricao && (
-                            <p className="text-sm text-gray-500">
-                              {p.descricao}
-                            </p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          {p.imagem_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.imagem_url}
+                              alt={p.nome}
+                              className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                            />
                           )}
-                          <p className="mt-1 font-semibold">
-                            {dinheiro(p.preco)}
-                          </p>
+                          <div>
+                            <p className="font-medium">{p.nome}</p>
+                            {p.descricao && (
+                              <p className="text-sm text-gray-500">
+                                {p.descricao}
+                              </p>
+                            )}
+                            <p className="mt-1 font-semibold">
+                              {dinheiro(p.preco)}
+                            </p>
+                          </div>
                         </div>
 
                         {esgotado ? (
