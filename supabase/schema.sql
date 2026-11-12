@@ -325,3 +325,43 @@ grant execute on function cancelar_pedido(uuid) to authenticated;
 -- select loja_id, id, 'Refrigerante lata', '350 ml', 6.00, 50 from cat_bebidas
 -- union all
 -- select loja_id, id, 'Suco natural', 'Laranja, 400 ml', 8.00, 0 from cat_bebidas;
+
+
+-- ---------------------------------------------------------------------
+-- STORAGE: imagens públicas das lojas
+-- Execute este bloco no SQL Editor do Supabase para habilitar logo e capa.
+-- O bucket é público para leitura; somente o dono da loja pode enviar ou
+-- apagar arquivos dentro da pasta cujo nome é o id da própria loja.
+-- ---------------------------------------------------------------------
+
+alter table public.lojas
+  add column if not exists logo_url text,
+  add column if not exists capa_url text;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('lojas', 'lojas', true, 5242880, array['image/jpeg'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "imagens_lojas_leitura_publica" on storage.objects
+  for select using (bucket_id = 'lojas');
+
+create policy "imagens_lojas_dono_enviar" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'lojas'
+    and (storage.foldername(name))[1] in (
+      select l.id::text from public.lojas l where l.dono_id = auth.uid()
+    )
+  );
+
+create policy "imagens_lojas_dono_apagar" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'lojas'
+    and (storage.foldername(name))[1] in (
+      select l.id::text from public.lojas l where l.dono_id = auth.uid()
+    )
+  );

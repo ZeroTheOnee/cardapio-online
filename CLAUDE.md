@@ -119,6 +119,13 @@ GitHub → Vercel (importação do repositório, framework Next.js, raiz `./`). 
 - Pagamento na entrega primeiro; Pix depois.
 - Construir no plano gratuito e migrar para **Supabase Pro e Vercel Pro** quando entrar a primeira receita. Antes de qualquer loja real: assinar os planos pagos (o plano gratuito da Vercel é só para uso não comercial e o do Supabase pausa por inatividade e não tem backup) e **religar a confirmação de e-mail** do Supabase (desligada para facilitar os testes).
 
+## Atualização recente — imagens de aparência
+
+- `app/admin/Aparencia.tsx` permite enviar e apagar logo e capa da loja. O navegador aceita JPG, PNG e WebP de até 5 MB, converte para JPEG e limita a largura a 1200 px antes do envio.
+- As imagens ficam no bucket público `lojas`, em `loja_id/logo-<uuid>.jpg` ou `loja_id/capa-<uuid>.jpg`. O sistema salva a URL pública em `lojas.logo_url` ou `lojas.capa_url`; o cardápio já exibe essas colunas.
+- `supabase/schema.sql` termina com a criação/configuração do bucket e as políticas de Storage: leitura pública, envio e exclusão autenticados somente pelo dono da loja daquela pasta.
+- **Pendente após esta alteração:** executar o bloco final de Storage de `supabase/schema.sql` no SQL Editor do Supabase. A SQL não é executada automaticamente pelo aplicativo.
+
 ## Pontos de atenção conhecidos
 
 - A política `pedidos_dono_atualizar` permite ao dono atualizar qualquer coluna do pedido (inclusive total). Aceitável por ora; considerar restringir a mudança de status a uma função.
