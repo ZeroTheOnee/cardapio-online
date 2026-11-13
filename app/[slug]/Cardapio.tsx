@@ -75,6 +75,51 @@ export default function Cardapio({
   const [obs, setObs] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+    // ---- Carrinho persistente (guardado neste navegador, por loja) ----
+  const chaveCarrinho = `carrinho:${loja.id}`;
+  const [carrinhoCarregado, setCarrinhoCarregado] = useState(false);
+
+  // ao abrir o cardápio, recupera o carrinho guardado
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const salvo = window.localStorage.getItem(chaveCarrinho);
+        if (salvo) {
+          const dados = JSON.parse(salvo) as Record<string, unknown>;
+          const limpo: Record<string, number> = {};
+          for (const p of categorias.flatMap((c) => c.produtos)) {
+            const qtd = Number(dados[p.id]);
+            // descarta item que saiu do cardápio ou ficou sem estoque
+            if (p.ativo && p.estoque > 0 && Number.isInteger(qtd) && qtd > 0) {
+              limpo[p.id] = Math.min(qtd, p.estoque);
+            }
+          }
+          setCarrinho(limpo);
+        }
+      } catch {
+        /* sem armazenamento disponível: o carrinho só não é lembrado */
+      }
+      setCarrinhoCarregado(true);
+    }, 0);
+    return () => clearTimeout(t);
+    // roda só ao abrir a página
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveCarrinho]);
+
+  // a cada mudança, guarda o carrinho
+  useEffect(() => {
+    if (!carrinhoCarregado) return;
+    try {
+      if (Object.keys(carrinho).length > 0) {
+        window.localStorage.setItem(chaveCarrinho, JSON.stringify(carrinho));
+      } else {
+        window.localStorage.removeItem(chaveCarrinho);
+      }
+    } catch {
+      /* sem armazenamento disponível */
+    }
+  }, [carrinho, carrinhoCarregado, chaveCarrinho]);
+
 
   const tema = {
     "--cor": loja.cor_principal,
@@ -142,6 +187,11 @@ export default function Cardapio({
       setErro(error.message);
       setEnviando(false);
       return;
+    }
+        try {
+      window.localStorage.removeItem(chaveCarrinho);
+    } catch {
+      /* ignora */
     }
     router.push(`/pedido/${data}`);
   }
