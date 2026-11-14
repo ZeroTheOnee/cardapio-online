@@ -237,7 +237,7 @@ export default function Cardapio({
 
         {/* Cabeçalho da loja */}
         <header className="px-6">
-          <div className="-mt-10 flex items-end gap-4">
+          <div className="-mt-10">
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-white bg-white shadow">
               {loja.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -252,10 +252,10 @@ export default function Cardapio({
                 </div>
               )}
             </div>
-            <h1 className="pb-1 text-2xl font-bold leading-tight">
-              {loja.nome}
-            </h1>
           </div>
+          <h1 className="mt-2 break-words text-2xl font-bold leading-tight">
+            {loja.nome}
+          </h1>
 
           {loja.descricao && (
             <p className="mt-3 text-sm text-gray-600">{loja.descricao}</p>
