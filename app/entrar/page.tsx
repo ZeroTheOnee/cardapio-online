@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,11 +11,23 @@ export default function Entrar() {
   const supabase = createClient();
   const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
   const [carregando, setCarregando] = useState(false);
+
+  // vindo do link de confirmação do e-mail (aberto em outro navegador/aparelho)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("confirmado") === "1") {
+        setAviso("E-mail confirmado! Entre com seu e-mail e senha.");
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErro("");
+    setAviso("");
     setCarregando(true);
 
     const f = new FormData(e.currentTarget);
@@ -33,9 +45,27 @@ export default function Entrar() {
         return;
       }
     } else {
+      // Nome, telefone e endereço vão junto no cadastro; quem grava nas tabelas
+      // clientes/enderecos é um gatilho no banco (funciona com e sem confirmação de e-mail).
+      const lojaSlug = new URLSearchParams(window.location.search).get("loja");
       const { data, error } = await supabase.auth.signUp({
         email,
         password: senha,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/cadastro${
+            lojaSlug ? "?loja=" + encodeURIComponent(lojaSlug) : ""
+          }`,
+          data: {
+            nome: String(f.get("nome")),
+            telefone: String(f.get("telefone")),
+            rua: String(f.get("rua")),
+            numero: String(f.get("numero")),
+            bairro: String(f.get("bairro")),
+            cidade: String(f.get("cidade")),
+            complemento: String(f.get("complemento") ?? ""),
+            referencia: String(f.get("referencia") ?? ""),
+          },
+        },
       });
       if (error || !data.user) {
         setErro(error?.message ?? "Não foi possível criar a conta.");
@@ -43,33 +73,9 @@ export default function Entrar() {
         return;
       }
       if (!data.session) {
-        setErro("Conta criada. Confirme seu e-mail para poder entrar.");
-        setCarregando(false);
-        return;
-      }
-
-      const { error: erroCliente } = await supabase.from("clientes").insert({
-        id: data.user.id,
-        nome: String(f.get("nome")),
-        telefone: String(f.get("telefone")),
-      });
-      if (erroCliente) {
-        setErro("Erro ao salvar seus dados: " + erroCliente.message);
-        setCarregando(false);
-        return;
-      }
-
-      const { error: erroEndereco } = await supabase.from("enderecos").insert({
-        cliente_id: data.user.id,
-        rua: String(f.get("rua")),
-        numero: String(f.get("numero")),
-        bairro: String(f.get("bairro")),
-        cidade: String(f.get("cidade")),
-        complemento: String(f.get("complemento")) || null,
-        referencia: String(f.get("referencia")) || null,
-      });
-      if (erroEndereco) {
-        setErro("Erro ao salvar o endereço: " + erroEndereco.message);
+        setAviso(
+          "Conta criada! Enviamos um e-mail de confirmação. Abra o link e depois volte para entrar."
+        );
         setCarregando(false);
         return;
       }
@@ -117,6 +123,11 @@ export default function Entrar() {
         )}
 
         {erro && <p className="text-sm text-red-600">{erro}</p>}
+        {aviso && (
+          <p className="rounded-lg bg-green-100 p-3 text-sm text-green-800">
+            {aviso}
+          </p>
+        )}
 
         <button
           type="submit"

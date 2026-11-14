@@ -231,10 +231,10 @@ export default function Painel({
   }
 
   async function avancar(id: string, status: string) {
-    const { error } = await supabase
-      .from("pedidos")
-      .update({ status })
-      .eq("id", id);
+    const { error } = await supabase.rpc("atualizar_status_pedido", {
+      p_pedido_id: id,
+      p_status: status,
+    });
     if (error) {
       alert(error.message);
       return;
@@ -256,10 +256,9 @@ export default function Painel({
 
   async function marcarPago(id: string) {
     if (!confirm("Confirmar que o Pix deste pedido foi recebido?")) return;
-    const { error } = await supabase
-      .from("pedidos")
-      .update({ pagamento_status: "pago" })
-      .eq("id", id);
+    const { error } = await supabase.rpc("marcar_pix_pago", {
+      p_pedido_id: id,
+    });
     if (error) {
       alert(error.message);
       return;
