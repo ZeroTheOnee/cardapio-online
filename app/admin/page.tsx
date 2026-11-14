@@ -13,7 +13,7 @@ export default async function Admin() {
   const { data: loja } = await supabase
     .from("lojas")
     .select(
-        "id, nome, slug, aberta, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
+        "id, nome, slug, aberta, taxa_entrega, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
       )
     .eq("dono_id", user.id)
     .limit(1)
@@ -39,6 +39,7 @@ export default async function Admin() {
     { data: produtos },
     { data: pedidos },
     { data: pagamento },
+    { data: localidades },
   ] = await Promise.all([
     supabase
       .from("categorias")
@@ -63,6 +64,11 @@ export default async function Admin() {
       .select("chave_pix")
       .eq("loja_id", loja.id)
       .maybeSingle(),
+    supabase
+      .from("localidades")
+      .select("id, nome, taxa, ativo")
+      .eq("loja_id", loja.id)
+      .order("nome"),
   ]);
 
   return (
@@ -72,6 +78,7 @@ export default async function Admin() {
       produtos={produtos ?? []}
       pedidos={pedidos ?? []}
       chavePix={pagamento?.chave_pix ?? ""}
+      localidades={localidades ?? []}
     />
   );
 }

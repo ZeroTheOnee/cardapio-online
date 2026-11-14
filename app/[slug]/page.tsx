@@ -28,5 +28,19 @@ export default async function Pagina({
     .eq("loja_id", loja.id)
     .order("ordem");
 
-  return <Cardapio slug={slug} loja={loja} categorias={categorias ?? []} />;
+  const { data: localidades } = await supabase
+    .from("localidades")
+    .select("id, nome, taxa")
+    .eq("loja_id", loja.id)
+    .eq("ativo", true)
+    .order("nome");
+
+  return (
+    <Cardapio
+      slug={slug}
+      loja={loja}
+      categorias={categorias ?? []}
+      localidades={localidades ?? []}
+    />
+  );
 }

@@ -30,6 +30,8 @@ type Loja = {
   endereco_texto: string | null;
 };
 
+type Localidade = { id: string; nome: string; taxa: number };
+
 type Endereco = {
   id: string;
   rua: string;
@@ -57,10 +59,12 @@ export default function Cardapio({
   slug,
   loja,
   categorias,
+  localidades,
 }: {
   slug: string;
   loja: Loja;
   categorias: Categoria[];
+  localidades: Localidade[];
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -71,6 +75,7 @@ export default function Cardapio({
   const [finalizando, setFinalizando] = useState(false);
   const [tipo, setTipo] = useState<"entrega" | "retirada">("entrega");
   const [enderecoId, setEnderecoId] = useState("");
+  const [localidadeId, setLocalidadeId] = useState("");
   const [forma, setForma] = useState("dinheiro");
   const [obs, setObs] = useState("");
   const [erro, setErro] = useState("");
@@ -163,13 +168,27 @@ export default function Cardapio({
 
   const subtotal = itens.reduce((soma, i) => soma + i.preco * i.quantidade, 0);
   const totalItens = itens.reduce((soma, i) => soma + i.quantidade, 0);
-  const taxa = tipo === "entrega" && itens.length > 0 ? loja.taxa_entrega : 0;
+  // Se a loja cadastrou localidades, a taxa vem da localidade escolhida;
+  // senão vale a taxa única da loja. (O servidor recalcula de qualquer forma.)
+  const temLocalidades = localidades.length > 0;
+  const localidade = localidades.find((l) => l.id === localidadeId);
+  const taxaBase = temLocalidades
+    ? localidade?.taxa ?? 0
+    : loja.taxa_entrega;
+  const taxa = tipo === "entrega" && itens.length > 0 ? taxaBase : 0;
+  const menorTaxa = temLocalidades
+    ? Math.min(...localidades.map((l) => l.taxa))
+    : loja.taxa_entrega;
   const total = subtotal + taxa;
 
   async function confirmar() {
     setErro("");
     if (tipo === "entrega" && !enderecoId) {
       setErro("Escolha um endereço de entrega.");
+      return;
+    }
+    if (tipo === "entrega" && temLocalidades && !localidadeId) {
+      setErro("Escolha a localidade da entrega.");
       return;
     }
     setEnviando(true);
@@ -181,6 +200,8 @@ export default function Cardapio({
       p_forma_pagamento: forma,
       p_observacao: obs || null,
       p_itens: itens.map((i) => ({ produto_id: i.id, quantidade: i.quantidade })),
+      p_localidade_id:
+        tipo === "entrega" && temLocalidades ? localidadeId : null,
     });
 
     if (error) {
@@ -251,7 +272,9 @@ export default function Cardapio({
               {loja.aberta ? "Aberto agora" : "Fechado no momento"}
             </span>
             <span className="rounded-full bg-gray-200 px-3 py-1">
-              Entrega {dinheiro(loja.taxa_entrega)}
+              {temLocalidades
+                ? `Entrega a partir de ${dinheiro(menorTaxa)}`
+                : `Entrega ${dinheiro(loja.taxa_entrega)}`}
             </span>
             {loja.instagram && (
               <a
@@ -399,6 +422,21 @@ export default function Cardapio({
                   </select>
                 )}
 
+                {tipo === "entrega" && temLocalidades && (
+                  <select
+                    value={localidadeId}
+                    onChange={(e) => setLocalidadeId(e.target.value)}
+                    className="w-full rounded-lg border p-3"
+                  >
+                    <option value="">Localidade da entrega...</option>
+                    {localidades.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.nome} — {dinheiro(l.taxa)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <select
                   value={forma}
                   onChange={(e) => setForma(e.target.value)}
@@ -431,7 +469,9 @@ export default function Cardapio({
             {tipo === "entrega" && (
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Entrega</span>
-                <span>{dinheiro(taxa)}</span>
+                <span>
+                  {temLocalidades && !localidade ? "escolha a localidade" : dinheiro(taxa)}
+                </span>
               </div>
             )}
             <div className="mt-1 flex justify-between text-lg font-bold">

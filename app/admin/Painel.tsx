@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
 import ProdutoCard from "./ProdutoCard";
+import Entrega from "./Entrega";
 
 type Loja = {
   id: string;
   nome: string;
   slug: string;
   aberta: boolean;
+  taxa_entrega: number;
   cor_principal: string;
   logo_url: string | null;
   capa_url: string | null;
@@ -19,6 +21,7 @@ type Loja = {
   endereco_texto: string | null;
 };
 type Categoria = { id: string; nome: string };
+type Localidade = { id: string; nome: string; taxa: number; ativo: boolean };
 type Produto = {
   id: string;
   nome: string;
@@ -43,6 +46,7 @@ type Pedido = {
     cidade: string;
     complemento?: string | null;
     referencia?: string | null;
+    localidade?: string | null;
   } | null;
   criado_em: string;
   clientes: Cliente | Cliente[] | null;
@@ -88,16 +92,20 @@ export default function Painel({
   produtos,
   pedidos,
   chavePix,
+  localidades,
 }: {
   loja: Loja;
   categorias: Categoria[];
   produtos: Produto[];
   pedidos: Pedido[];
   chavePix: string;
+  localidades: Localidade[];
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-  const [aba, setAba] = useState<"pedidos" | "produtos" | "pagamento" | "aparencia">(
+  const [aba, setAba] = useState<
+    "pedidos" | "produtos" | "entrega" | "pagamento" | "aparencia"
+  >(
     "pedidos"
   );
   const [aberta, setAberta] = useState(loja.aberta);
@@ -197,7 +205,7 @@ export default function Painel({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {(["pedidos", "produtos", "pagamento", "aparencia"] as const).map((a) => (
+        {(["pedidos", "produtos", "entrega", "pagamento", "aparencia"] as const).map((a) => (
           <button
             key={a}
             onClick={() => setAba(a)}
@@ -209,7 +217,9 @@ export default function Painel({
               ? `Pedidos (${andamento.length})`
               : a === "produtos"
               ? "Produtos"
-                 : a === "pagamento"
+              : a === "entrega"
+              ? "Entrega"
+              : a === "pagamento"
               ? "Pagamento"
               : "Aparência"}
           </button>
@@ -262,6 +272,17 @@ export default function Painel({
               <ProdutoCard lojaId={loja.id} key={p.id} p={p} onSalvo={() => router.refresh()} />
             ))}
           </div>
+        </section>
+      )}
+
+      {aba === "entrega" && (
+        <section className="mt-6">
+          <Entrega
+            lojaId={loja.id}
+            taxaPadrao={loja.taxa_entrega}
+            localidades={localidades}
+            onSalvo={() => router.refresh()}
+          />
         </section>
       )}
 
@@ -344,7 +365,7 @@ function CartaoPedido({
 
       <p className="mt-2 text-sm text-gray-600">
         {p.tipo === "entrega" && e
-          ? `Entrega: ${e.rua}, ${e.numero} - ${e.bairro}, ${e.cidade}${
+          ? `Entrega${e.localidade ? " (" + e.localidade + ")" : ""}: ${e.rua}, ${e.numero} - ${e.bairro}, ${e.cidade}${
               e.complemento ? " (" + e.complemento + ")" : ""
             }${e.referencia ? " · Ref.: " + e.referencia : ""}`
           : "Retirada no local"}
