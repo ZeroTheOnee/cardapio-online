@@ -300,6 +300,14 @@ export default function Cardapio({
               Entrar / Criar conta
             </a>
           )}
+          {logado === true && (
+            <a
+              href="/meus-pedidos"
+              className="mt-3 inline-block text-sm underline"
+            >
+              Meus pedidos
+            </a>
+          )}
         </header>
 
         {/* Produtos */}

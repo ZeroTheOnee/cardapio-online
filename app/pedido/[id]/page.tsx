@@ -2,16 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import CopiarPix from "./CopiarPix";
+import LinhaDoTempo from "./LinhaDoTempo";
+import AtualizarSozinho from "./AtualizarSozinho";
 
 type Item = { nome: string; preco_unitario: number; quantidade: number };
-
-const STATUS: Record<string, string> = {
-  recebido: "Pedido recebido",
-  preparando: "Em preparo",
-  saiu_entrega: "Saiu para entrega",
-  entregue: "Entregue",
-  cancelado: "Cancelado",
-};
 
 const FORMA: Record<string, string> = {
   pix: "Pix",
@@ -34,7 +28,7 @@ export default async function Pedido({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, status, tipo, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone)"
+      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone)"
     )
     .eq("id", id)
     .single();
@@ -48,6 +42,9 @@ export default async function Pedido({
     slug: string;
     telefone: string | null;
   } | null;
+
+  const emAndamento =
+    pedido.status !== "entregue" && pedido.status !== "cancelado";
 
   const mostrarPix =
     pedido.forma_pagamento === "pix" &&
@@ -73,11 +70,30 @@ export default async function Pedido({
 
   return (
     <main className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-bold">Pedido enviado! ✅</h1>
+      <AtualizarSozinho ativo={emAndamento} />
+
+      <h1 className="text-2xl font-bold">
+        {pedido.status === "entregue"
+          ? "Pedido concluído ✅"
+          : pedido.status === "cancelado"
+          ? "Pedido cancelado"
+          : "Pedido enviado! ✅"}
+      </h1>
       {loja && <p className="mt-1 text-gray-500">{loja.nome}</p>}
-      <p className="mt-4 rounded-lg bg-gray-100 p-3 font-medium">
-        {STATUS[pedido.status] ?? pedido.status}
+      <p className="text-sm text-gray-400">
+        Pedido {pedido.id.slice(0, 8)} ·{" "}
+        {new Date(pedido.criado_em).toLocaleString("pt-BR", {
+          dateStyle: "short",
+          timeStyle: "short",
+        })}
       </p>
+
+      <LinhaDoTempo status={pedido.status} tipo={pedido.tipo} />
+      {emAndamento && (
+        <p className="mt-2 text-xs text-gray-400">
+          Esta página se atualiza sozinha.
+        </p>
+      )}
 
       {pedido.forma_pagamento === "pix" &&
         pedido.pagamento_status === "pago" && (
@@ -155,11 +171,16 @@ export default async function Pedido({
         </p>
       </div>
 
-      {loja && (
-        <Link href={`/${loja.slug}`} className="mt-6 inline-block underline">
-          Voltar ao cardápio
+      <div className="mt-6 flex flex-wrap gap-4">
+        {loja && (
+          <Link href={`/${loja.slug}`} className="underline">
+            Voltar ao cardápio
+          </Link>
+        )}
+        <Link href="/meus-pedidos" className="underline">
+          Meus pedidos
         </Link>
-      )}
+      </div>
     </main>
   );
 }
