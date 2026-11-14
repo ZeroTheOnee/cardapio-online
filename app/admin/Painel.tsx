@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
@@ -134,12 +134,88 @@ export default function Painel({
   );
   const [aberta, setAberta] = useState(loja.aberta);
 
-  // atualiza a lista de pedidos sozinho a cada 15 segundos
+  // atualiza a lista de pedidos sozinho a cada 15 segundos (em qualquer aba,
+  // para o aviso de pedido novo funcionar mesmo fora da aba Pedidos)
   useEffect(() => {
-    if (aba !== "pedidos") return;
     const t = setInterval(() => router.refresh(), 15000);
     return () => clearInterval(t);
-  }, [aba, router]);
+  }, [router]);
+
+  // ---- Aviso de pedido novo ----
+  const [somAtivo, setSomAtivo] = useState(false);
+  const [novos, setNovos] = useState(0);
+  const audioRef = useRef<AudioContext | null>(null);
+  const conhecidos = useRef<Set<string> | null>(null);
+  const somRef = useRef(false);
+  const tituloOriginal = useRef("");
+
+  function bipar() {
+    const ctx = audioRef.current;
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.25;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const ini = ctx.currentTime + i * 0.35;
+      osc.start(ini);
+      osc.stop(ini + 0.2);
+    }
+  }
+
+  function alternarSom() {
+    if (!somAtivo) {
+      // o navegador só libera o som depois de um clique do usuário
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        audioRef.current = audioRef.current ?? new Ctx();
+        somRef.current = true;
+        setSomAtivo(true);
+        bipar();
+      } catch {
+        alert("Este navegador não permite tocar o aviso sonoro.");
+      }
+    } else {
+      somRef.current = false;
+      setSomAtivo(false);
+    }
+  }
+
+  function dispensarAviso() {
+    setNovos(0);
+    if (tituloOriginal.current) document.title = tituloOriginal.current;
+  }
+
+  // detecta pedidos "recebido" que ainda não tinham aparecido neste painel
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const ids = new Set(pedidos.map((p) => p.id));
+      if (conhecidos.current === null) {
+        // primeira carga: só memoriza, não avisa
+        conhecidos.current = ids;
+        tituloOriginal.current = document.title;
+        return;
+      }
+      const novosPedidos = pedidos.filter(
+        (p) => p.status === "recebido" && !conhecidos.current!.has(p.id)
+      );
+      conhecidos.current = ids;
+      if (novosPedidos.length > 0) {
+        setNovos((n) => n + novosPedidos.length);
+        document.title = "🔔 Novo pedido!";
+        if (somRef.current) bipar();
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidos]);
 
   async function alternarLoja() {
     const nova = !aberta;
@@ -213,7 +289,15 @@ export default function Painel({
             Ver cardápio
           </a>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={alternarSom}
+            className={`rounded-lg border px-4 py-2 ${
+              somAtivo ? "border-green-700 text-green-700" : "text-gray-600"
+            }`}
+          >
+            {somAtivo ? "🔔 Som ligado" : "🔕 Ligar som"}
+          </button>
           <button
             onClick={alternarLoja}
             className={`rounded-lg px-4 py-2 text-white ${
@@ -227,6 +311,19 @@ export default function Painel({
           </button>
         </div>
       </div>
+
+      {novos > 0 && (
+        <button
+          onClick={() => {
+            dispensarAviso();
+            setAba("pedidos");
+          }}
+          className="mt-4 w-full rounded-lg bg-green-700 p-3 text-left font-semibold text-white"
+        >
+          🔔 {novos === 1 ? "Novo pedido!" : `${novos} novos pedidos!`} Toque
+          para ver
+        </button>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
         {(["pedidos", "produtos", "entrega", "pagamento", "aparencia"] as const).map((a) => (
