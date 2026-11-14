@@ -86,6 +86,30 @@ function proximo(p: Pedido): { status: string; texto: string } | null {
   return null;
 }
 
+// Mensagem pronta para avisar o cliente pelo WhatsApp, conforme o status atual.
+function mensagemStatus(p: Pedido, nomeCliente: string, nomeLoja: string) {
+  const primeiro = nomeCliente.split(" ")[0] || "";
+  const ola = primeiro ? `Olá, ${primeiro}!` : "Olá!";
+  const num = p.id.slice(0, 8);
+  const fim = ` (${nomeLoja}, pedido ${num})`;
+  switch (p.status) {
+    case "recebido":
+      return `${ola} Recebemos o seu pedido ✅${fim}`;
+    case "preparando":
+      return `${ola} Seu pedido já está em preparo 👨‍🍳${fim}`;
+    case "saiu_entrega":
+      return p.tipo === "entrega"
+        ? `${ola} Seu pedido saiu para entrega 🛵${fim}`
+        : `${ola} Seu pedido está pronto para retirada 🙌${fim}`;
+    case "entregue":
+      return `${ola} Pedido entregue. Obrigado pela preferência! 😊${fim}`;
+    case "cancelado":
+      return `${ola} Infelizmente não conseguimos atender o seu pedido e ele foi cancelado.${fim} Qualquer dúvida, é só responder esta mensagem.`;
+    default:
+      return `${ola}${fim}`;
+  }
+}
+
 export default function Painel({
   loja,
   categorias,
@@ -235,6 +259,7 @@ export default function Painel({
             <CartaoPedido
               key={p.id}
               p={p}
+              lojaNome={loja.nome}
               onAvancar={avancar}
               onCancelar={cancelar}
               onPagar={marcarPago}
@@ -248,6 +273,7 @@ export default function Painel({
                 <CartaoPedido
                   key={p.id}
                   p={p}
+                  lojaNome={loja.nome}
                   onAvancar={avancar}
                   onCancelar={cancelar}
                   onPagar={marcarPago}
@@ -306,11 +332,13 @@ export default function Painel({
 
 function CartaoPedido({
   p,
+  lojaNome,
   onAvancar,
   onCancelar,
   onPagar,
 }: {
   p: Pedido;
+  lojaNome: string;
   onAvancar: (id: string, status: string) => void;
   onCancelar: (id: string) => void;
   onPagar: (id: string) => void;
@@ -324,8 +352,12 @@ function CartaoPedido({
     p.status !== "cancelado";
 
   const fone = cliente?.telefone?.replace(/\D/g, "") ?? "";
-  const linkZap = fone
-    ? `https://wa.me/${fone.length <= 11 ? "55" + fone : fone}`
+  const foneCompleto = fone ? (fone.length <= 11 ? "55" + fone : fone) : "";
+  const linkZap = fone ? `https://wa.me/${foneCompleto}` : null;
+  const linkAviso = fone
+    ? `https://wa.me/${foneCompleto}?text=${encodeURIComponent(
+        mensagemStatus(p, cliente?.nome ?? "", lojaNome)
+      )}`
     : null;
 
   return (
@@ -387,6 +419,16 @@ function CartaoPedido({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {linkAviso && (
+            <a
+              href={linkAviso}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-green-700 px-4 py-2 text-green-700"
+            >
+              Avisar cliente
+            </a>
+          )}
           {aguardaPix && (
             <button
               onClick={() => onPagar(p.id)}
