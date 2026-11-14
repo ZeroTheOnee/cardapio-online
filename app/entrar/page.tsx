@@ -125,6 +125,12 @@ export default function Entrar() {
         >
           {carregando ? "Aguarde..." : modo === "entrar" ? "Entrar" : "Criar conta"}
         </button>
+        
+      {modo === "entrar" && (
+        <a href="/esqueci-senha" className="mt-4 block text-sm underline">
+          Esqueci minha senha
+        </a>
+      )}
       </form>
 
       <button
