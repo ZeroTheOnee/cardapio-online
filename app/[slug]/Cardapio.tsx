@@ -147,6 +147,20 @@ export default function Cardapio({
     });
   }, [supabase]);
 
+  // Pré-seleciona a localidade pelo bairro (ou cidade) do endereço escolhido.
+  // O cliente pode trocar a localidade na hora do pedido.
+  useEffect(() => {
+    if (localidades.length === 0) return;
+    const e = enderecos.find((x) => x.id === enderecoId);
+    if (!e) return;
+    const norm = (t: string) =>
+      t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    const achada =
+      localidades.find((l) => norm(l.nome) === norm(e.bairro)) ??
+      localidades.find((l) => norm(l.nome) === norm(e.cidade));
+    if (achada) setLocalidadeId(achada.id);
+  }, [enderecoId, enderecos, localidades]);
+
   const todos = categorias.flatMap((c) => c.produtos);
 
   function alterar(produto: Produto, delta: number) {
@@ -427,7 +441,7 @@ export default function Cardapio({
                   <select
                     value={enderecoId}
                     onChange={(e) => setEnderecoId(e.target.value)}
-                    className="w-full rounded-lg border p-3"
+                    className="w-full rounded-lg border bg-white p-3 text-black"
                   >
                     {enderecos.length === 0 && (
                       <option value="">Nenhum endereço cadastrado</option>
@@ -444,7 +458,7 @@ export default function Cardapio({
                   <select
                     value={localidadeId}
                     onChange={(e) => setLocalidadeId(e.target.value)}
-                    className="w-full rounded-lg border p-3"
+                    className="w-full rounded-lg border bg-white p-3 text-black"
                   >
                     <option value="">Localidade da entrega...</option>
                     {localidades.map((l) => (
@@ -458,7 +472,7 @@ export default function Cardapio({
                 <select
                   value={forma}
                   onChange={(e) => setForma(e.target.value)}
-                  className="w-full rounded-lg border p-3"
+                  className="w-full rounded-lg border bg-white p-3 text-black"
                 >
                   <option value="dinheiro">Dinheiro na entrega/retirada</option>
                   <option value="cartao_entrega">Cartão na entrega/retirada</option>
@@ -471,7 +485,7 @@ export default function Cardapio({
                   value={obs}
                   onChange={(e) => setObs(e.target.value)}
                   placeholder="Observação (ex.: sem cebola, troco para 50)"
-                  className="w-full rounded-lg border p-3"
+                  className="w-full rounded-lg border bg-white p-3 text-black"
                 />
 
                 {erro && <p className="text-sm text-red-600">{erro}</p>}
