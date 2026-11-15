@@ -43,7 +43,7 @@ export default async function Admin() {
   ] = await Promise.all([
     supabase
       .from("categorias")
-      .select("id, nome")
+      .select("id, nome, ordem")
       .eq("loja_id", loja.id)
       .order("ordem"),
     supabase

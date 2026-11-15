@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Localidade = { id: string; nome: string; taxa: number; ativo: boolean };
 
-const campo = "w-full rounded-lg border p-2";
+const campo = "w-full rounded-lg border bg-white p-2 text-black";
 
 function paraNumero(texto: string) {
   return Number(texto.replace(",", "."));

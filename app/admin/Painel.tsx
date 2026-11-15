@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
 import ProdutoCard from "./ProdutoCard";
 import Entrega from "./Entrega";
+import Categorias from "./Categorias";
 
 type Loja = {
   id: string;
@@ -20,7 +21,7 @@ type Loja = {
   instagram: string | null;
   endereco_texto: string | null;
 };
-type Categoria = { id: string; nome: string };
+type Categoria = { id: string; nome: string; ordem: number };
 type Localidade = { id: string; nome: string; taxa: number; ativo: boolean };
 type Produto = {
   id: string;
@@ -53,7 +54,7 @@ type Pedido = {
   itens_pedido: { nome: string; quantidade: number }[];
 };
 
-const campo = "w-full rounded-lg border p-2";
+const campo = "w-full rounded-lg border bg-white p-2 text-black";
 
 const STATUS_TXT: Record<string, string> = {
   recebido: "Novo",
@@ -382,6 +383,16 @@ export default function Painel({
 
       {aba === "produtos" && (
         <section className="mt-6 space-y-6">
+          <Categorias
+            lojaId={loja.id}
+            categorias={categorias}
+            contagem={produtos.reduce<Record<string, number>>((acc, p) => {
+              if (p.categoria_id) acc[p.categoria_id] = (acc[p.categoria_id] ?? 0) + 1;
+              return acc;
+            }, {})}
+            onSalvo={() => router.refresh()}
+          />
+
           <NovoProduto
             lojaId={loja.id}
             categorias={categorias}
@@ -712,7 +723,7 @@ function NovoProduto({
 
     const { error } = await supabase.from("produtos").insert({
       loja_id: lojaId,
-      categoria_id: String(f.get("categoria")) || null,
+      categoria_id: String(f.get("categoria")),
       nome: String(f.get("nome")),
       descricao: String(f.get("descricao")) || null,
       preco: precoNum,
@@ -736,10 +747,12 @@ function NovoProduto({
         <input name="preco" placeholder="Preço (ex.: 15,90)" required className={campo} />
         <input name="estoque" placeholder="Estoque" required className={campo} />
       </div>
-      <select name="categoria" className={campo}>
-        <option value="">Sem categoria</option>
+      <select name="categoria" required defaultValue="" className={campo}>
+        <option value="" disabled className="text-black">
+          Escolha a categoria
+        </option>
         {categorias.map((c) => (
-          <option key={c.id} value={c.id}>
+          <option key={c.id} value={c.id} className="text-black">
             {c.nome}
           </option>
         ))}
