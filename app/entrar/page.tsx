@@ -119,6 +119,21 @@ export default function Entrar() {
             <input name="cidade" placeholder="Cidade" required className={campo} />
             <input name="complemento" placeholder="Complemento (opcional)" className={campo} />
             <input name="referencia" placeholder="Ponto de referência (opcional)" className={campo} />
+
+            <label className="flex items-start gap-2 pt-2 text-sm">
+              <input type="checkbox" required className="mt-1" />
+              <span>
+                Li e aceito os{" "}
+                <a href="/termos" target="_blank" className="underline">
+                  Termos de uso
+                </a>{" "}
+                e a{" "}
+                <a href="/privacidade" target="_blank" className="underline">
+                  Política de privacidade
+                </a>
+                .
+              </span>
+            </label>
           </>
         )}
 

@@ -389,6 +389,16 @@ export default function Cardapio({
             );
           })}
         </div>
+
+        <footer className="mt-10 px-6 text-center text-xs text-gray-400">
+          <a href="/termos" className="underline">
+            Termos de uso
+          </a>
+          {" · "}
+          <a href="/privacidade" className="underline">
+            Política de privacidade
+          </a>
+        </footer>
       </main>
 
       {/* Barra do carrinho */}
