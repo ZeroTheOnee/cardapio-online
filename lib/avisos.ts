@@ -1,6 +1,6 @@
 // Envio dos avisos de pedido novo (notificação push). SÓ para rotas de servidor:
 // recebe um cliente Supabase com a chave service_role.
-import webpush from "web-push";
+import * as webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pedeeasy.com.br";
