@@ -7,12 +7,16 @@ import Aparencia from "./Aparencia";
 import ProdutoCard from "./ProdutoCard";
 import Entrega from "./Entrega";
 import Categorias from "./Categorias";
+import Conta from "./Conta";
+import Contato from "./Contato";
+import Avisos from "./Avisos";
 
 type Loja = {
   id: string;
   nome: string;
   slug: string;
   aberta: boolean;
+  telefone: string | null;
   taxa_entrega: number;
   cor_principal: string;
   logo_url: string | null;
@@ -129,7 +133,7 @@ export default function Painel({
   const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [aba, setAba] = useState<
-    "pedidos" | "produtos" | "entrega" | "pagamento" | "aparencia"
+    "pedidos" | "produtos" | "entrega" | "pagamento" | "aparencia" | "avisos" | "conta"
   >(
     "pedidos"
   );
@@ -149,6 +153,61 @@ export default function Painel({
   const conhecidos = useRef<Set<string> | null>(null);
   const somRef = useRef(false);
   const tituloOriginal = useRef("");
+  // o dono já tinha ligado o som antes de recarregar/fechar: falta só um toque na tela
+  const [somPendente, setSomPendente] = useState(false);
+  const chaveSom = `som:${loja.id}`;
+
+  function guardarSom(ligado: boolean) {
+    try {
+      window.localStorage.setItem(chaveSom, ligado ? "1" : "0");
+    } catch {
+      /* ignora */
+    }
+  }
+
+  function ligarAudio() {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    audioRef.current = audioRef.current ?? new Ctx();
+    if (audioRef.current.state === "suspended") audioRef.current.resume();
+    somRef.current = true;
+    setSomAtivo(true);
+    setSomPendente(false);
+  }
+
+  // Ao abrir ou recarregar o painel: se o som estava ligado, o navegador ainda
+  // bloqueia o áudio até haver um toque. O primeiro toque em qualquer lugar liga.
+  useEffect(() => {
+    let salvo = false;
+    try {
+      salvo = window.localStorage.getItem(chaveSom) === "1";
+    } catch {
+      /* ignora */
+    }
+    if (!salvo) return;
+    const t = setTimeout(() => setSomPendente(true), 0);
+    const ativar = () => {
+      try {
+        ligarAudio();
+      } catch {
+        /* sem suporte a áudio */
+      }
+      limpar();
+    };
+    const limpar = () => {
+      document.removeEventListener("pointerdown", ativar);
+      document.removeEventListener("keydown", ativar);
+    };
+    document.addEventListener("pointerdown", ativar);
+    document.addEventListener("keydown", ativar);
+    return () => {
+      clearTimeout(t);
+      limpar();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveSom]);
 
   function bipar() {
     const ctx = audioRef.current;
@@ -172,13 +231,8 @@ export default function Painel({
     if (!somAtivo) {
       // o navegador só libera o som depois de um clique do usuário
       try {
-        const Ctx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext;
-        audioRef.current = audioRef.current ?? new Ctx();
-        somRef.current = true;
-        setSomAtivo(true);
+        ligarAudio();
+        guardarSom(true);
         bipar();
       } catch {
         alert("Este navegador não permite tocar o aviso sonoro.");
@@ -186,6 +240,8 @@ export default function Painel({
     } else {
       somRef.current = false;
       setSomAtivo(false);
+      setSomPendente(false);
+      guardarSom(false);
     }
   }
 
@@ -296,7 +352,11 @@ export default function Painel({
               somAtivo ? "border-green-700 text-green-700" : "text-gray-600"
             }`}
           >
-            {somAtivo ? "🔔 Som ligado" : "🔕 Ligar som"}
+            {somAtivo
+              ? "🔔 Som ligado"
+              : somPendente
+              ? "🔕 Toque na tela para ligar o som"
+              : "🔕 Ligar som"}
           </button>
           <button
             onClick={alternarLoja}
@@ -326,7 +386,7 @@ export default function Painel({
       )}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {(["pedidos", "produtos", "entrega", "pagamento", "aparencia"] as const).map((a) => (
+        {(["pedidos", "produtos", "entrega", "pagamento", "aparencia", "avisos", "conta"] as const).map((a) => (
           <button
             key={a}
             onClick={() => setAba(a)}
@@ -342,7 +402,11 @@ export default function Painel({
               ? "Entrega"
               : a === "pagamento"
               ? "Pagamento"
-              : "Aparência"}
+              : a === "aparencia"
+              ? "Aparência"
+              : a === "avisos"
+              ? "Avisos"
+              : "Conta"}
           </button>
         ))}
       </div>
@@ -428,9 +492,26 @@ export default function Painel({
           />
         </section>
       )}
-            {aba === "aparencia" && (
-        <section className="mt-6">
+      {aba === "aparencia" && (
+        <section className="mt-6 space-y-6">
+          <Contato
+            lojaId={loja.id}
+            telefone={loja.telefone}
+            onSalvo={() => router.refresh()}
+          />
           <Aparencia loja={loja} />
+        </section>
+      )}
+
+      {aba === "avisos" && (
+        <section className="mt-6">
+          <Avisos lojaId={loja.id} />
+        </section>
+      )}
+
+      {aba === "conta" && (
+        <section className="mt-6">
+          <Conta />
         </section>
       )}
     </main>
