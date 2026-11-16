@@ -13,7 +13,7 @@ export default async function Admin() {
   const { data: loja } = await supabase
     .from("lojas")
     .select(
-        "id, nome, slug, aberta, taxa_entrega, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
+        "id, nome, slug, aberta, telefone, taxa_entrega, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
       )
     .eq("dono_id", user.id)
     .limit(1)
