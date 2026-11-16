@@ -315,12 +315,23 @@ export default function Cardapio({
             </a>
           )}
           {logado === true && (
-            <a
-              href="/meus-pedidos"
-              className="mt-3 inline-block text-sm underline"
-            >
-              Meus pedidos
-            </a>
+            <div className="mt-3 flex items-center gap-4">
+              <a href="/meus-pedidos" className="text-sm underline">
+                Meus pedidos
+              </a>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setLogado(false);
+                  setEnderecos([]);
+                  setEnderecoId("");
+                  setLocalidadeId("");
+                }}
+                className="text-sm underline"
+              >
+                Sair da conta
+              </button>
+            </div>
           )}
         </header>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BotaoSair from "./BotaoSair";
 import { createClient } from "@/lib/supabase/server";
 import AtualizarSozinho from "../pedido/[id]/AtualizarSozinho";
 
@@ -54,7 +55,10 @@ export default async function MeusPedidos() {
   return (
     <main className="mx-auto max-w-md p-6">
       <AtualizarSozinho ativo={algumEmAndamento} segundos={15} />
-      <h1 className="text-2xl font-bold">Meus pedidos</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Meus pedidos</h1>
+        <BotaoSair destino="/" />
+      </div>
 
       {lista.length === 0 && (
         <p className="mt-4 text-gray-500">Você ainda não fez nenhum pedido.</p>

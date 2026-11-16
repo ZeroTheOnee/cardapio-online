@@ -56,14 +56,14 @@ const PASSOS = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+    <div className="min-h-screen bg-[#fffdfa] text-gray-900">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <span className="text-xl font-extrabold tracking-tight">
           Pede<span className="text-orange-600">Easy</span>
         </span>
         <Link
           href="/entrar?loja=admin"
-          className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold shadow-sm transition hover:border-orange-200 hover:bg-orange-50"
         >
           Entrar no painel
         </Link>
@@ -71,45 +71,51 @@ export default function Home() {
 
       <main>
         {/* Apresentação */}
-        <section className="mx-auto max-w-5xl px-6 pb-16 pt-10 sm:pt-16">
-          <p className="mb-3 inline-block rounded-full bg-orange-100 px-3 py-1 text-sm font-medium text-orange-800">
-            Para restaurantes, lanchonetes e food trucks
-          </p>
-          <h1 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            Seu cardápio online, com pedidos pelo celular.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-gray-600">
-            Seus clientes pedem por um link, você recebe tudo num painel simples
-            e controla estoque, preços e entrega. Sem planilha e sem anotar
-            pedido de cabeça.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href={CONTATO}
-              target={P.whatsapp ? "_blank" : undefined}
-              rel="noreferrer"
-              className="rounded-lg bg-orange-600 px-6 py-3 font-semibold text-white hover:bg-orange-700"
-            >
-              Quero para o meu negócio
-            </a>
-            <Link
-              href="/lanchonete-exemplo"
-              className="rounded-lg border px-6 py-3 font-semibold hover:bg-gray-50"
-            >
-              Ver um cardápio de exemplo
-            </Link>
+        <section className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
+          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-orange-50 via-white to-amber-100 px-6 py-12 ring-1 ring-orange-100 sm:px-12 sm:py-16">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-orange-200/30 blur-3xl" />
+            <p className="relative mb-4 inline-flex rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-orange-800 shadow-sm ring-1 ring-orange-100">
+              Para restaurantes, lanchonetes e food trucks
+            </p>
+            <h1 className="relative max-w-3xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
+              Seu cardápio online, com pedidos pelo celular.
+            </h1>
+            <p className="relative mt-5 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+              Seus clientes pedem por um link, você recebe tudo num painel simples
+              e controla estoque, preços e entrega. Sem planilha e sem anotar
+              pedido de cabeça.
+            </p>
+            <div className="relative mt-8 flex flex-wrap gap-3">
+              <a
+                href={CONTATO}
+                target={P.whatsapp ? "_blank" : undefined}
+                rel="noreferrer"
+                className="rounded-xl bg-orange-600 px-6 py-3.5 font-semibold text-white shadow-lg shadow-orange-600/20 transition hover:-translate-y-0.5 hover:bg-orange-700"
+              >
+                Quero para o meu negócio
+              </a>
+              <Link
+                href="/lanchonete-exemplo"
+                className="rounded-xl border border-gray-200 bg-white/80 px-6 py-3.5 font-semibold shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:bg-white"
+              >
+                Ver um cardápio de exemplo
+              </Link>
+            </div>
           </div>
         </section>
 
         {/* Recursos */}
-        <section className="bg-gray-50 py-16">
-          <div className="mx-auto max-w-5xl px-6">
+        <section className="bg-[#f7f5f0] py-16 sm:py-20">
+          <div className="mx-auto max-w-6xl px-6">
             <h2 className="text-2xl font-bold sm:text-3xl">
               Tudo o que você precisa para vender pelo celular
             </h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {RECURSOS.map((r) => (
-                <div key={r.titulo} className="rounded-xl border bg-white p-5">
+                <div
+                  key={r.titulo}
+                  className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm shadow-gray-900/[0.025] transition duration-200 hover:-translate-y-1 hover:shadow-lg"
+                >
                   <h3 className="font-semibold">{r.titulo}</h3>
                   <p className="mt-2 text-sm text-gray-600">{r.texto}</p>
                 </div>
@@ -119,12 +125,12 @@ export default function Home() {
         </section>
 
         {/* Como funciona */}
-        <section className="mx-auto max-w-5xl px-6 py-16">
+        <section className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
           <h2 className="text-2xl font-bold sm:text-3xl">Como funciona</h2>
           <ol className="mt-8 grid gap-6 sm:grid-cols-3">
             {PASSOS.map((p) => (
               <li key={p.n} className="flex gap-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-600 font-bold text-white">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-600 font-bold text-white shadow-md shadow-orange-600/20">
                   {p.n}
                 </span>
                 <div>
@@ -137,12 +143,12 @@ export default function Home() {
         </section>
 
         {/* Preço */}
-        <section className="bg-gray-50 py-16">
+        <section className="bg-[#f7f5f0] py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-6 text-center">
             <h2 className="text-2xl font-bold sm:text-3xl">
               Um preço simples, sem comissão por pedido
             </h2>
-            <div className="mx-auto mt-8 max-w-sm rounded-2xl border bg-white p-8 text-left shadow-sm">
+            <div className="mx-auto mt-8 max-w-sm rounded-3xl border border-orange-100 bg-white p-8 text-left shadow-xl shadow-orange-900/[0.04]">
               <p className="text-sm font-medium text-orange-700">
                 Plano único
               </p>
@@ -163,7 +169,7 @@ export default function Home() {
                 href={CONTATO}
                 target={P.whatsapp ? "_blank" : undefined}
                 rel="noreferrer"
-                className="mt-8 block rounded-lg bg-orange-600 px-6 py-3 text-center font-semibold text-white hover:bg-orange-700"
+                className="mt-8 block rounded-xl bg-orange-600 px-6 py-3.5 text-center font-semibold text-white shadow-lg shadow-orange-600/20 transition hover:bg-orange-700"
               >
                 Quero começar
               </a>
@@ -172,8 +178,8 @@ export default function Home() {
         </section>
 
         {/* Chamada final */}
-        <section className="bg-orange-600 py-14 text-white">
-          <div className="mx-auto max-w-5xl px-6 text-center">
+        <section className="bg-gradient-to-br from-orange-600 to-orange-700 py-16 text-white sm:py-20">
+          <div className="mx-auto max-w-6xl px-6 text-center">
             <h2 className="text-2xl font-bold sm:text-3xl">
               Vamos colocar o seu cardápio no ar?
             </h2>
@@ -192,7 +198,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="mx-auto max-w-5xl px-6 py-8 text-sm text-gray-500">
+      <footer className="mx-auto max-w-6xl px-6 py-8 text-sm text-gray-500">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span>
             © {new Date().getFullYear()} {P.nome} · {P.cidade}

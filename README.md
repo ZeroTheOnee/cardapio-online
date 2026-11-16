@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PedeEasy
 
-## Getting Started
+Aplicação multi-loja para cardápios digitais e pedidos online. Clientes escolhem produtos e acompanham pedidos; cada loja administra pedidos, catálogo, entrega e aparência em `/admin`.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20 ou mais recente
+- Um projeto Supabase com Auth e banco configurados
+
+## Rodar localmente
+
+1. Instale as dependências com `npm install`.
+2. Crie `.env.local` na raiz do projeto:
+
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA
+   ```
+
+   Use somente a chave pública do Supabase (`anon` ou `publishable`). Nunca coloque uma chave `service_role` ou `secret` em variável `NEXT_PUBLIC_`.
+
+3. Inicie o servidor com `npm run dev` e abra <http://localhost:3000>.
+
+## Comandos
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev    # desenvolvimento local
+npm run lint   # análise estática com ESLint
+npm run build  # build de produção
+npm start      # serve o build de produção
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estrutura
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `app/[slug]`: cardápio público de uma loja.
+- `app/entrar`: login e cadastro de clientes.
+- `app/pedido/[id]` e `app/meus-pedidos`: acompanhamento e histórico.
+- `app/admin`: painel dos donos de loja.
+- `lib/supabase`: clientes Supabase para servidor e navegador.
+- `supabase/schema.sql`: referência SQL do banco.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Supabase e segurança
 
-## Learn More
+O app depende das tabelas, políticas RLS e funções RPC do Supabase. Pedidos devem ser criados pela função `criar_pedido`, que calcula o total e atualiza o estoque no banco. Não remova RLS nem permita que o navegador envie valores de preço ou total como fonte confiável.
 
-To learn more about Next.js, take a look at the following resources:
+**Atenção:** o `supabase/schema.sql` versionado ainda não contém todas as tabelas, colunas e funções usadas pelo código atual (por exemplo, localidades e configuração de Pix). Não use esse arquivo sozinho para criar ou restaurar um banco. Antes de configurar um projeto Supabase novo, atualize e confira o esquema completo contra as consultas e RPCs do app. Para o banco já em uso, registre cada mudança SQL em migrações versionadas e preserve os dados existentes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+No Supabase, configure as URLs de redirecionamento de Auth para o endereço local e o domínio publicado, incluindo `/auth/confirm`. O cadastro e recuperação de senha também dependem das configurações de confirmação de e-mail e SMTP do projeto.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Publicação
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O projeto pode ser publicado na Vercel. Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` nas variáveis de ambiente da Vercel e confira as URLs de redirecionamento no Supabase Auth. Depois de alterar variáveis, faça um novo deploy.
