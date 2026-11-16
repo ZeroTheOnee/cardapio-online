@@ -1,186 +1,142 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import CopiarPix from "./CopiarPix";
-import LinhaDoTempo from "./LinhaDoTempo";
-import AtualizarSozinho from "./AtualizarSozinho";
+import { PLATAFORMA as P } from "@/lib/legal";
 
-type Item = { nome: string; preco_unitario: number; quantidade: number };
+export const metadata = { title: "Política de privacidade" };
 
-const FORMA: Record<string, string> = {
-  pix: "Pix",
-  dinheiro: "Dinheiro na entrega/retirada",
-  cartao_entrega: "Cartão na entrega/retirada",
-};
-
-function dinheiro(valor: number) {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-export default async function Pedido({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: pedido } = await supabase
-    .from("pedidos")
-    .select(
-      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone)"
-    )
-    .eq("id", id)
-    .single();
-
-  if (!pedido) notFound();
-
-  const itens = pedido.itens_pedido as Item[];
-  const lojaRel = Array.isArray(pedido.lojas) ? pedido.lojas[0] : pedido.lojas;
-  const loja = lojaRel as {
-    nome: string;
-    slug: string;
-    telefone: string | null;
-  } | null;
-
-  const emAndamento =
-    pedido.status !== "entregue" && pedido.status !== "cancelado";
-
-  const mostrarPix =
-    pedido.forma_pagamento === "pix" &&
-    pedido.pagamento_status === "pendente" &&
-    pedido.status !== "cancelado";
-
-  let chavePix: string | null = null;
-  if (mostrarPix) {
-    const { data } = await supabase.rpc("chave_pix_do_pedido", {
-      p_pedido_id: pedido.id,
-    });
-    chavePix = (data as string | null) ?? null;
-  }
-
-  const fone = loja?.telefone?.replace(/\D/g, "") ?? "";
-  const linkZap = fone
-    ? `https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(
-        `Olá! Fiz o pedido ${pedido.id.slice(0, 8)} e paguei o Pix de ${dinheiro(
-          pedido.total
-        )}. Segue o comprovante:`
-      )}`
-    : null;
-
+export default function Privacidade() {
   return (
-    <main className="mx-auto max-w-md p-6">
-      <AtualizarSozinho ativo={emAndamento} />
-
-      <h1 className="text-2xl font-bold">
-        {pedido.status === "entregue"
-          ? "Pedido concluído ✅"
-          : pedido.status === "cancelado"
-          ? "Pedido cancelado"
-          : "Pedido enviado! ✅"}
-      </h1>
-      {loja && <p className="mt-1 text-gray-500">{loja.nome}</p>}
-      <p className="text-sm text-gray-400">
-        Pedido {pedido.id.slice(0, 8)} ·{" "}
-        {new Date(pedido.criado_em).toLocaleString("pt-BR", {
-          dateStyle: "short",
-          timeStyle: "short",
-        })}
+    <main className="mx-auto max-w-2xl space-y-4 p-6 leading-relaxed text-gray-800">
+      <h1 className="text-2xl font-bold">Política de privacidade</h1>
+      <p className="text-sm text-gray-500">
+        Última atualização: {P.atualizadoEm}
       </p>
 
-      <LinhaDoTempo status={pedido.status} tipo={pedido.tipo} />
-      {emAndamento && (
-        <p className="mt-2 text-xs text-gray-400">
-          Esta página se atualiza sozinha.
-        </p>
-      )}
+      <p>
+        Esta política explica como seus dados pessoais são tratados na{" "}
+        {P.nome}, de acordo com a Lei Geral de Proteção de Dados (LGPD, Lei
+        13.709/2018).
+      </p>
 
-      {pedido.forma_pagamento === "pix" &&
-        pedido.pagamento_status === "pago" && (
-          <p className="mt-3 rounded-lg bg-green-100 p-3 text-green-800">
-            Pagamento confirmado ✓
-          </p>
-        )}
+      <h2 className="pt-2 text-lg font-semibold">1. Quem cuida dos seus dados</h2>
+      <p>
+        Quando você faz um pedido, a <strong>loja</strong> escolhida usa os
+        seus dados para atender você e decide como eles são usados nesse
+        pedido (controladora). A {P.nome}, mantida por {P.responsavel}
+        {P.documento ? ` (${P.documento})` : ""}, fornece o sistema e trata os dados em nome da loja
+        (operadora). Para a conta de acesso e o funcionamento do sistema, a{" "}
+        {P.nome} também responde pelos dados.
+      </p>
 
-      {mostrarPix && (
-        <div className="mt-4 rounded-lg border p-4">
-          <p className="font-semibold">Pague com Pix</p>
-          <p className="mt-1 text-sm text-gray-600">
-            Valor: <strong>{dinheiro(pedido.total)}</strong>
-          </p>
-
-          {chavePix ? (
-            <>
-              <p className="mt-3 break-all rounded border border-gray-300 bg-white p-3 font-mono text-base font-semibold text-black select-all">
-                {chavePix}
-              </p>
-              <CopiarPix chave={chavePix} />
-            </>
-          ) : (
-            <p className="mt-3 text-sm text-red-600">
-              Chave Pix indisponível. Fale com a loja.
-            </p>
-          )}
-
-          <p className="mt-3 text-sm text-gray-600">
-            Depois de pagar, envie o comprovante para a loja. O pagamento será
-            confirmado quando ela receber.
-          </p>
-
-          {linkZap && (
-            <a
-              href={linkZap}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block rounded-lg bg-green-700 px-4 py-2 text-white"
-            >
-              Enviar comprovante no WhatsApp
-            </a>
-          )}
-        </div>
-      )}
-
-      <ul className="mt-6 space-y-2">
-        {itens.map((i, n) => (
-          <li key={n} className="flex justify-between">
-            <span>
-              {i.quantidade}x {i.nome}
-            </span>
-            <span>{dinheiro(i.preco_unitario * i.quantidade)}</span>
-          </li>
-        ))}
+      <h2 className="pt-2 text-lg font-semibold">2. Quais dados coletamos</h2>
+      <ul className="list-disc space-y-1 pl-6">
+        <li>
+          <strong>Cadastro:</strong> nome, telefone (WhatsApp), e-mail e senha
+          (a senha é guardada de forma protegida, nunca em texto aberto).
+        </li>
+        <li>
+          <strong>Endereço de entrega:</strong> rua, número, bairro, cidade,
+          complemento e ponto de referência.
+        </li>
+        <li>
+          <strong>Pedidos:</strong> itens, valores, forma de pagamento, tipo
+          (entrega ou retirada), observações e andamento.
+        </li>
+        <li>
+          <strong>Dados no seu aparelho:</strong> o carrinho e a sessão de
+          login ficam guardados no seu navegador para o site funcionar. Não
+          usamos cookies de publicidade.
+        </li>
       </ul>
+      <p>
+        Não coletamos dados de cartão. O pagamento é feito diretamente à loja.
+      </p>
 
-      <div className="mt-4 space-y-1 border-t pt-4 text-sm">
-        <div className="flex justify-between">
-          <span>Subtotal</span>
-          <span>{dinheiro(pedido.subtotal)}</span>
-        </div>
-        {pedido.tipo === "entrega" && (
-          <div className="flex justify-between">
-            <span>Entrega</span>
-            <span>{dinheiro(pedido.taxa_entrega)}</span>
-          </div>
-        )}
-        <div className="flex justify-between text-lg font-bold">
-          <span>Total</span>
-          <span>{dinheiro(pedido.total)}</span>
-        </div>
-        <p className="text-gray-500">
-          Pagamento: {FORMA[pedido.forma_pagamento] ?? pedido.forma_pagamento}
-        </p>
-      </div>
+      <h2 className="pt-2 text-lg font-semibold">3. Para que usamos</h2>
+      <ul className="list-disc space-y-1 pl-6">
+        <li>Criar e manter a sua conta e permitir o seu login;</li>
+        <li>Processar e entregar os seus pedidos;</li>
+        <li>Permitir que a loja entre em contato sobre o pedido (inclusive por WhatsApp);</li>
+        <li>Mostrar o andamento e o histórico dos seus pedidos;</li>
+        <li>Recuperar a sua senha e enviar e-mails do sistema;</li>
+        <li>Manter a segurança e prevenir fraudes;</li>
+        <li>Cumprir obrigações legais.</li>
+      </ul>
+      <p>
+        As bases legais são a execução do contrato do seu pedido, o legítimo
+        interesse na segurança do sistema e o cumprimento de obrigações
+        legais.
+      </p>
 
-      <div className="mt-6 flex flex-wrap gap-4">
-        {loja && (
-          <Link href={`/${loja.slug}`} className="underline">
-            Voltar ao cardápio
-          </Link>
-        )}
-        <Link href="/meus-pedidos" className="underline">
-          Meus pedidos
+      <h2 className="pt-2 text-lg font-semibold">4. Com quem compartilhamos</h2>
+      <ul className="list-disc space-y-1 pl-6">
+        <li>
+          <strong>A loja em que você pediu:</strong> vê seu nome, telefone,
+          endereço (nas entregas) e os dados do pedido. Ela não vê dados de
+          pedidos feitos em outras lojas.
+        </li>
+        <li>
+          <strong>Provedores de tecnologia:</strong> usamos serviços de
+          hospedagem, banco de dados e e-mail para o sistema funcionar. Esses
+          serviços podem ter servidores fora do Brasil.
+        </li>
+        <li>
+          <strong>Autoridades:</strong> quando a lei exigir.
+        </li>
+      </ul>
+      <p>Não vendemos seus dados.</p>
+
+      <h2 className="pt-2 text-lg font-semibold">5. Por quanto tempo guardamos</h2>
+      <p>
+        Guardamos seus dados enquanto a sua conta existir e pelo prazo
+        necessário para cumprir obrigações legais e resolver eventuais
+        disputas sobre pedidos. Depois disso, eles são apagados ou
+        anonimizados.
+      </p>
+
+      <h2 className="pt-2 text-lg font-semibold">6. Seus direitos</h2>
+      <p>
+        Você pode pedir: confirmação de que tratamos seus dados; acesso;
+        correção de dados incorretos; anonimização, bloqueio ou eliminação
+        de dados desnecessários; portabilidade; informação sobre com quem
+        compartilhamos; e a exclusão da sua conta. Envie o pedido para{" "}
+        {P.email}. Se achar necessário, você também pode reclamar à
+        Autoridade Nacional de Proteção de Dados (ANPD).
+      </p>
+
+      <h2 className="pt-2 text-lg font-semibold">7. Segurança</h2>
+      <p>
+        Usamos conexão segura (HTTPS), controle de acesso por conta e
+        regras que impedem um cliente de ver os dados de outro. Nenhum
+        sistema é 100% seguro, mas trabalhamos para proteger os seus dados e
+        avisaremos em caso de incidente relevante, como a lei determina.
+      </p>
+
+      <h2 className="pt-2 text-lg font-semibold">8. Crianças e adolescentes</h2>
+      <p>
+        O serviço é destinado a maiores de 18 anos. Menores de idade devem
+        usá-lo com o acompanhamento de um responsável.
+      </p>
+
+      <h2 className="pt-2 text-lg font-semibold">9. Mudanças nesta política</h2>
+      <p>
+        Podemos atualizar esta política. A data da última atualização fica
+        no topo desta página.
+      </p>
+
+      <h2 className="pt-2 text-lg font-semibold">10. Contato</h2>
+      <p>
+        Dúvidas sobre seus dados: {P.email}. Veja também os{" "}
+        <Link href="/termos" className="underline">
+          Termos de uso
         </Link>
-      </div>
+        .
+      </p>
+
+      <p className="pt-4 text-sm">
+        <Link href="/" className="underline">
+          Voltar
+        </Link>
+      </p>
     </main>
   );
 }
