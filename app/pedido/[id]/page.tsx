@@ -111,7 +111,10 @@ export default async function Pedido({
 
           {chavePix ? (
             <>
-              <p className="mt-3 break-all rounded bg-gray-100 p-3 font-mono text-sm">
+              <p
+                style={{ backgroundColor: "#ffffff", color: "#000000" }}
+                className="mt-3 break-all rounded border-2 border-gray-400 p-3 font-mono text-base font-semibold select-all"
+              >
                 {chavePix}
               </p>
               <CopiarPix chave={chavePix} />
@@ -138,6 +141,32 @@ export default async function Pedido({
             </a>
           )}
         </div>
+      )}
+
+      {fone && (
+        <a
+          href={`https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(
+            pedido.status === "recebido"
+              ? `Olá! Acabei de fazer o pedido #${pedido.id.slice(0, 8)} pelo cardápio online. Pode conferir no painel?`
+              : `Olá! Tenho uma dúvida sobre o pedido #${pedido.id.slice(0, 8)}.`
+          )}`}
+          target="_blank"
+          rel="noreferrer"
+          className={
+            pedido.status === "recebido"
+              ? "mt-4 block rounded-lg bg-green-600 px-4 py-3 text-center font-semibold text-white"
+              : "mt-4 block rounded-lg border border-green-600 px-4 py-3 text-center font-semibold text-green-700"
+          }
+        >
+          {pedido.status === "recebido"
+            ? "💬 Avisar a loja no WhatsApp"
+            : "💬 Falar com a loja no WhatsApp"}
+        </a>
+      )}
+      {fone && pedido.status === "recebido" && (
+        <p className="mt-1 text-center text-xs text-gray-500">
+          Seu pedido já foi enviado. Este aviso é opcional.
+        </p>
       )}
 
       <ul className="mt-6 space-y-2">
