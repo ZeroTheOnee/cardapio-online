@@ -8,6 +8,14 @@ export default function BotaoSair({ destino = "/" }: { destino?: string }) {
   const [supabase] = useState(() => createClient());
 
   async function sair() {
+    const { data } = await supabase.auth.getUser();
+    if (
+      data.user?.is_anonymous &&
+      !confirm(
+        "Você pediu sem criar conta. Ao sair, não será possível ver os pedidos feitos neste aparelho. Sair mesmo?"
+      )
+    )
+      return;
     await supabase.auth.signOut();
     window.location.href = destino;
   }

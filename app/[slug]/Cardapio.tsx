@@ -19,6 +19,7 @@ type Categoria = { id: string; nome: string; produtos: Produto[] };
 type Loja = {
   id: string;
   nome: string;
+  telefone: string | null;
   taxa_entrega: number;
   aberta: boolean;
   aceita_pix: boolean;
@@ -80,6 +81,20 @@ export default function Cardapio({
   const [obs, setObs] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // pedido sem conta (visitante): o Supabase cria uma conta anônima só para este navegador
+  const [convidado, setConvidado] = useState(false);
+  const [anonimo, setAnonimo] = useState(false);
+  const [aceitou, setAceitou] = useState(false);
+  const [vis, setVis] = useState({
+    nome: "",
+    telefone: "",
+    rua: "",
+    numero: "",
+    bairro: "",
+    cidade: "",
+    complemento: "",
+    referencia: "",
+  });
     // ---- Carrinho persistente (guardado neste navegador, por loja) ----
   const chaveCarrinho = `carrinho:${loja.id}`;
   const [carrinhoCarregado, setCarrinhoCarregado] = useState(false);
@@ -138,6 +153,7 @@ export default function Cardapio({
         return;
       }
       setLogado(true);
+      setAnonimo(!!data.user.is_anonymous);
       const { data: ends } = await supabase
         .from("enderecos")
         .select("id, rua, numero, bairro, cidade")
@@ -160,6 +176,23 @@ export default function Cardapio({
       localidades.find((l) => norm(l.nome) === norm(e.cidade));
     if (achada) setLocalidadeId(achada.id);
   }, [enderecoId, enderecos, localidades]);
+
+  const foneLoja = loja.telefone?.replace(/\D/g, "") ?? "";
+  const zapLoja = foneLoja
+    ? `https://wa.me/${foneLoja.length <= 11 ? "55" + foneLoja : foneLoja}?text=${encodeURIComponent(
+        `Olá, ${loja.nome}! Vim pelo cardápio online.`
+      )}`
+    : null;
+
+  // Visitante sem conta: pré-seleciona a localidade pelo bairro digitado.
+  useEffect(() => {
+    if (logado !== false || localidades.length === 0) return;
+    const norm = (t: string) =>
+      t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    if (!vis.bairro.trim()) return;
+    const achada = localidades.find((l) => norm(l.nome) === norm(vis.bairro));
+    if (achada) setLocalidadeId(achada.id);
+  }, [vis.bairro, logado, localidades]);
 
   const todos = categorias.flatMap((c) => c.produtos);
 
@@ -197,9 +230,32 @@ export default function Cardapio({
 
   async function confirmar() {
     setErro("");
-    if (tipo === "entrega" && !enderecoId) {
-      setErro("Escolha um endereço de entrega.");
-      return;
+    const visitante = logado === false;
+    if (visitante) {
+      if (vis.nome.trim().length < 2) {
+        setErro("Digite o seu nome.");
+        return;
+      }
+      if (vis.telefone.replace(/\D/g, "").length < 10) {
+        setErro("Digite o telefone com DDD, para a loja falar com você.");
+        return;
+      }
+      if (
+        tipo === "entrega" &&
+        !(vis.rua.trim() && vis.numero.trim() && vis.bairro.trim() && vis.cidade.trim())
+      ) {
+        setErro("Preencha rua, número, bairro e cidade.");
+        return;
+      }
+      if (!aceitou) {
+        setErro("Aceite os Termos de uso e a Política de privacidade para continuar.");
+        return;
+      }
+    } else {
+      if (tipo === "entrega" && !enderecoId) {
+        setErro("Escolha um endereço de entrega.");
+        return;
+      }
     }
     if (tipo === "entrega" && temLocalidades && !localidadeId) {
       setErro("Escolha a localidade da entrega.");
@@ -207,10 +263,54 @@ export default function Cardapio({
     }
     setEnviando(true);
 
+    let enderecoFinal = enderecoId;
+    if (visitante) {
+      const meta: Record<string, string> = {
+        nome: vis.nome.trim(),
+        telefone: vis.telefone.trim(),
+      };
+      if (tipo === "entrega") {
+        meta.rua = vis.rua.trim();
+        meta.numero = vis.numero.trim();
+        meta.bairro = vis.bairro.trim();
+        meta.cidade = vis.cidade.trim();
+        meta.complemento = vis.complemento.trim();
+        meta.referencia = vis.referencia.trim();
+      }
+      // o gatilho do banco cria clientes/enderecos a partir destes dados
+      const { data: au, error: ea } = await supabase.auth.signInAnonymously({
+        options: { data: meta },
+      });
+      if (ea || !au.user) {
+        setErro(
+          ea?.message?.toLowerCase().includes("anonymous")
+            ? "Pedido sem conta indisponível no momento. Entre ou crie uma conta."
+            : ea?.message ?? "Não foi possível continuar. Tente de novo."
+        );
+        setEnviando(false);
+        return;
+      }
+      if (tipo === "entrega") {
+        const { data: ends } = await supabase
+          .from("enderecos")
+          .select("id")
+          .eq("cliente_id", au.user.id)
+          .limit(1);
+        enderecoFinal = ends?.[0]?.id ?? "";
+        if (!enderecoFinal) {
+          setErro("Não foi possível salvar o endereço. Tente de novo.");
+          setEnviando(false);
+          return;
+        }
+      }
+      setLogado(true);
+      setAnonimo(true);
+    }
+
     const { data, error } = await supabase.rpc("criar_pedido", {
       p_loja_id: loja.id,
       p_tipo: tipo,
-      p_endereco_id: tipo === "entrega" ? enderecoId : null,
+      p_endereco_id: tipo === "entrega" ? enderecoFinal : null,
       p_forma_pagamento: forma,
       p_observacao: obs || null,
       p_itens: itens.map((i) => ({ produto_id: i.id, quantidade: i.quantidade })),
@@ -306,6 +406,17 @@ export default function Cardapio({
             <p className="mt-2 text-sm text-gray-500">{loja.endereco_texto}</p>
           )}
 
+          {zapLoja && (
+            <a
+              href={zapLoja}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              💬 Falar com a loja no WhatsApp
+            </a>
+          )}
+
           {logado === false && (
             <a
               href={`/entrar?loja=${slug}`}
@@ -321,8 +432,18 @@ export default function Cardapio({
               </a>
               <button
                 onClick={async () => {
+                  if (
+                    anonimo &&
+                    !confirm(
+                      "Você pediu sem criar conta. Ao sair, não será possível ver os pedidos feitos neste aparelho. Sair mesmo?"
+                    )
+                  )
+                    return;
                   await supabase.auth.signOut();
                   setLogado(false);
+                  setAnonimo(false);
+                  setConvidado(false);
+                  setFinalizando(false);
                   setEnderecos([]);
                   setEnderecoId("");
                   setLocalidadeId("");
@@ -430,8 +551,28 @@ export default function Cardapio({
       {totalItens > 0 && (
         <div className="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto border-t bg-white p-4 shadow-lg">
           <div className="mx-auto max-w-2xl">
-            {finalizando && logado && (
+            {finalizando && (logado || convidado) && (
               <div className="mb-4 space-y-3 border-b pb-4">
+                {logado === false && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Seus dados</p>
+                    <input
+                      value={vis.nome}
+                      onChange={(e) => setVis({ ...vis, nome: e.target.value })}
+                      placeholder="Seu nome"
+                      autoComplete="name"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                    <input
+                      value={vis.telefone}
+                      onChange={(e) => setVis({ ...vis, telefone: e.target.value })}
+                      placeholder="Telefone / WhatsApp com DDD"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                  </div>
+                )}
                 <div className="flex gap-2">
                   {(["entrega", "retirada"] as const).map((t) => (
                     <button
@@ -448,7 +589,51 @@ export default function Cardapio({
                   ))}
                 </div>
 
-                {tipo === "entrega" && (
+                {tipo === "entrega" && logado === false && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Endereço de entrega</p>
+                    <input
+                      value={vis.rua}
+                      onChange={(e) => setVis({ ...vis, rua: e.target.value })}
+                      placeholder="Rua"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        value={vis.numero}
+                        onChange={(e) => setVis({ ...vis, numero: e.target.value })}
+                        placeholder="Número"
+                        className="w-full rounded-lg border bg-white p-3 text-black"
+                      />
+                      <input
+                        value={vis.bairro}
+                        onChange={(e) => setVis({ ...vis, bairro: e.target.value })}
+                        placeholder="Bairro"
+                        className="w-full rounded-lg border bg-white p-3 text-black"
+                      />
+                    </div>
+                    <input
+                      value={vis.cidade}
+                      onChange={(e) => setVis({ ...vis, cidade: e.target.value })}
+                      placeholder="Cidade"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                    <input
+                      value={vis.complemento}
+                      onChange={(e) => setVis({ ...vis, complemento: e.target.value })}
+                      placeholder="Complemento (opcional)"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                    <input
+                      value={vis.referencia}
+                      onChange={(e) => setVis({ ...vis, referencia: e.target.value })}
+                      placeholder="Ponto de referência (opcional)"
+                      className="w-full rounded-lg border bg-white p-3 text-black"
+                    />
+                  </div>
+                )}
+
+                {tipo === "entrega" && logado && (
                   <select
                     value={enderecoId}
                     onChange={(e) => setEnderecoId(e.target.value)}
@@ -499,6 +684,28 @@ export default function Cardapio({
                   className="w-full rounded-lg border bg-white p-3 text-black"
                 />
 
+                {logado === false && (
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={aceitou}
+                      onChange={(e) => setAceitou(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <span>
+                      Li e aceito os{" "}
+                      <a href="/termos" target="_blank" className="underline">
+                        Termos de uso
+                      </a>{" "}
+                      e a{" "}
+                      <a href="/privacidade" target="_blank" className="underline">
+                        Política de privacidade
+                      </a>
+                      .
+                    </span>
+                  </label>
+                )}
+
                 {erro && <p className="text-sm text-red-600">{erro}</p>}
               </div>
             )}
@@ -526,13 +733,40 @@ export default function Cardapio({
               <p className="mt-3 text-center text-sm text-red-600">
                 A loja está fechada no momento.
               </p>
+            ) : logado === false && convidado ? (
+              <>
+                <button
+                  onClick={confirmar}
+                  disabled={enviando}
+                  className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                >
+                  {enviando ? "Enviando..." : "Confirmar pedido"}
+                </button>
+                <button
+                  onClick={() => router.push(`/entrar?loja=${slug}`)}
+                  className="mt-2 w-full text-center text-sm underline"
+                >
+                  Já tenho conta: entrar
+                </button>
+              </>
             ) : logado === false ? (
-              <button
-                onClick={() => router.push(`/entrar?loja=${slug}`)}
-                className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
-              >
-                Entrar para finalizar
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setConvidado(true);
+                    setFinalizando(true);
+                  }}
+                  className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                >
+                  Pedir sem criar conta
+                </button>
+                <button
+                  onClick={() => router.push(`/entrar?loja=${slug}`)}
+                  className="mt-2 w-full rounded-lg border py-3"
+                >
+                  Entrar ou criar conta
+                </button>
+              </>
             ) : !finalizando ? (
               <button
                 onClick={() => setFinalizando(true)}
