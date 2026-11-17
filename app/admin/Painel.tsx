@@ -9,6 +9,7 @@ import Entrega from "./Entrega";
 import Categorias from "./Categorias";
 import Conta from "./Conta";
 import Contato from "./Contato";
+import NomeLoja from "./NomeLoja";
 import Avisos from "./Avisos";
 
 type Loja = {
@@ -494,6 +495,12 @@ export default function Painel({
       )}
       {aba === "aparencia" && (
         <section className="mt-6 space-y-6">
+          <NomeLoja
+            key={loja.nome}
+            lojaId={loja.id}
+            nome={loja.nome}
+            onSalvo={() => router.refresh()}
+          />
           <Contato
             lojaId={loja.id}
             telefone={loja.telefone}
