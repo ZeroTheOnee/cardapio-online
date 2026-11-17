@@ -84,7 +84,6 @@ export default function Cardapio({
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
   // pedido sem conta (visitante): o Supabase cria uma conta anônima só para este navegador
-  const [convidado, setConvidado] = useState(false);
   const [anonimo, setAnonimo] = useState(false);
   const [aceitou, setAceitou] = useState(false);
   const [vis, setVis] = useState({
@@ -470,7 +469,6 @@ export default function Cardapio({
                   await supabase.auth.signOut();
                   setLogado(false);
                   setAnonimo(false);
-                  setConvidado(false);
                   setFinalizando(false);
                   setEnderecos([]);
                   setEnderecoId("");
@@ -686,7 +684,7 @@ export default function Cardapio({
               </div>
             )}
 
-            {finalizando && (logado || convidado) && (
+            {finalizando && logado !== null && (
               <div className="mb-4 space-y-3 border-b border-gray-100 pb-4">
                 {logado === false && (
                   <div className="space-y-2">
@@ -847,40 +845,6 @@ export default function Cardapio({
               <p className="mt-3 text-center text-sm text-red-600">
                 A loja está fechada no momento.
               </p>
-            ) : logado === false && convidado ? (
-              <>
-                <button
-                  onClick={confirmar}
-                  disabled={enviando}
-                  className={`mt-3 w-full rounded-xl py-2.5 text-sm font-semibold shadow-sm ${botaoTema}`}
-                >
-                  {enviando ? "Enviando..." : "Confirmar pedido"}
-                </button>
-                <button
-                  onClick={() => router.push(`/entrar?loja=${slug}`)}
-                  className="mt-2 w-full text-center text-sm underline"
-                >
-                  Já tenho conta: entrar
-                </button>
-              </>
-            ) : logado === false ? (
-              <>
-                <button
-                  onClick={() => {
-                    setConvidado(true);
-                    setFinalizando(true);
-                  }}
-                  className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
-                >
-                  Pedir sem criar conta
-                </button>
-                <button
-                  onClick={() => router.push(`/entrar?loja=${slug}`)}
-                  className="mt-1 w-full rounded-lg py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-                >
-                  Entrar ou criar conta
-                </button>
-              </>
             ) : !finalizando ? (
               <button
                 onClick={() => setFinalizando(true)}
