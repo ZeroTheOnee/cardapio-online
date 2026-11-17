@@ -342,7 +342,7 @@ export default function Cardapio({
 
   return (
     <div style={tema} className="min-h-screen bg-gray-50 text-gray-900">
-      <main className="mx-auto max-w-2xl pb-72">
+      <main className="mx-auto max-w-2xl pb-28">
         {/* Capa */}
         <div className="h-40 w-full overflow-hidden bg-[var(--cor)]">
           {loja.capa_url && (
@@ -555,12 +555,13 @@ export default function Cardapio({
 
       {/* Barra do carrinho */}
       {totalItens > 0 && (
-        <div className="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto border-t bg-white p-4 shadow-lg">
-          <div className="mx-auto max-w-2xl">
+        <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur ${verCarrinho || finalizando ? "max-h-[88dvh] overflow-y-auto rounded-t-3xl" : "rounded-t-2xl"}`}>
+          <div className="mx-auto max-w-2xl px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+            {(verCarrinho || finalizando) && <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />}
             {(verCarrinho || finalizando) && (
-              <div className="mb-3 border-b pb-3">
+              <div className="mb-4 border-b border-gray-100 pb-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="font-semibold">Seu pedido</p>
+                  <div><p className="font-semibold text-gray-900">Seu pedido</p><p className="text-xs text-gray-500">Revise os itens antes de continuar</p></div>
                   <button
                     onClick={limparCarrinho}
                     className="text-sm text-red-600 underline"
@@ -568,20 +569,21 @@ export default function Cardapio({
                     Limpar carrinho
                   </button>
                 </div>
-                <ul className="space-y-3">
+                <ul className="max-h-44 space-y-3 overflow-y-auto pr-1">
                   {itens.map((i) => (
-                    <li key={i.id} className="flex items-center gap-3">
+                    <li key={i.id} className="flex items-center gap-3 rounded-xl bg-gray-50 p-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{i.nome}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {dinheiro(i.preco)} cada <span className="px-1">·</span>
                           {dinheiro(i.preco * i.quantidade)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-1.5">
                         <button
                           onClick={() => alterar(i, -1)}
                           aria-label={`Menos ${i.nome}`}
-                          className="h-8 w-8 rounded-full border text-lg leading-none"
+                          className="h-8 w-8 rounded-full border border-gray-200 bg-white text-lg leading-none hover:bg-gray-100"
                         >
                           −
                         </button>
@@ -599,7 +601,7 @@ export default function Cardapio({
                         <button
                           onClick={() => removerItem(i.id)}
                           aria-label={`Remover ${i.nome}`}
-                          className="ml-1 text-gray-400"
+                          className="ml-1 grid h-8 w-8 place-items-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600"
                         >
                           ✕
                         </button>
@@ -611,7 +613,7 @@ export default function Cardapio({
             )}
 
             {finalizando && (logado || convidado) && (
-              <div className="mb-4 space-y-3 border-b pb-4">
+              <div className="mb-4 space-y-3 border-b border-gray-100 pb-4">
                 {logado === false && (
                   <div className="space-y-2">
                     <p className="text-sm font-semibold">Seus dados</p>
@@ -746,15 +748,15 @@ export default function Cardapio({
               ) : (
                 <button
                   onClick={() => setVerCarrinho((v) => !v)}
-                  className="font-medium underline"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-2 font-semibold text-gray-800 hover:bg-gray-200"
                 >
                   🛒 {totalItens} {totalItens === 1 ? "item" : "itens"} ·{" "}
                   {verCarrinho ? "Esconder carrinho ▼" : "Ver carrinho ▲"}
                 </button>
               )}
-              <span>Subtotal {dinheiro(subtotal)}</span>
+              <span className="font-medium text-gray-700">Subtotal {dinheiro(subtotal)}</span>
             </div>
-            {tipo === "entrega" && (
+            {(finalizando || verCarrinho) && tipo === "entrega" && (
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Entrega</span>
                 <span>
@@ -762,10 +764,10 @@ export default function Cardapio({
                 </span>
               </div>
             )}
-            <div className="mt-1 flex justify-between text-lg font-bold">
+            {(finalizando || verCarrinho) && <div className="mt-2 flex justify-between border-t border-gray-100 pt-2 text-lg font-bold text-gray-900">
               <span>Total</span>
               <span>{dinheiro(total)}</span>
-            </div>
+            </div>}
 
             {!loja.aberta ? (
               <p className="mt-3 text-center text-sm text-red-600">
@@ -776,7 +778,7 @@ export default function Cardapio({
                 <button
                   onClick={confirmar}
                   disabled={enviando}
-                  className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                  className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
                 >
                   {enviando ? "Enviando..." : "Confirmar pedido"}
                 </button>
@@ -794,13 +796,13 @@ export default function Cardapio({
                     setConvidado(true);
                     setFinalizando(true);
                   }}
-                  className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                  className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
                 >
                   Pedir sem criar conta
                 </button>
                 <button
                   onClick={() => router.push(`/entrar?loja=${slug}`)}
-                  className="mt-2 w-full rounded-lg border py-3"
+                  className="mt-2 w-full rounded-xl border border-gray-200 py-3 font-medium hover:bg-gray-50"
                 >
                   Entrar ou criar conta
                 </button>
@@ -809,7 +811,7 @@ export default function Cardapio({
               <button
                 onClick={() => setFinalizando(true)}
                 disabled={logado === null}
-                className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
               >
                 Finalizar pedido
               </button>
@@ -817,7 +819,7 @@ export default function Cardapio({
               <button
                 onClick={confirmar}
                 disabled={enviando}
-                className={`mt-3 w-full rounded-lg py-3 ${botaoTema}`}
+                className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
               >
                 {enviando ? "Enviando..." : "Confirmar pedido"}
               </button>
