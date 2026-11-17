@@ -778,7 +778,7 @@ export default function Cardapio({
                 <button
                   onClick={confirmar}
                   disabled={enviando}
-                  className={`mt-3 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
+                  className={`mt-3 w-full rounded-xl py-2.5 text-sm font-semibold shadow-sm ${botaoTema}`}
                 >
                   {enviando ? "Enviando..." : "Confirmar pedido"}
                 </button>
@@ -802,7 +802,7 @@ export default function Cardapio({
                 </button>
                 <button
                   onClick={() => router.push(`/entrar?loja=${slug}`)}
-                  className="mt-2 w-full rounded-xl border border-gray-200 py-3 font-medium hover:bg-gray-50"
+                  className="mt-1 w-full rounded-lg py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                 >
                   Entrar ou criar conta
                 </button>
