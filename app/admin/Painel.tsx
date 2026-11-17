@@ -585,7 +585,15 @@ function CartaoPedido({
 
       <p className="mt-2 text-sm text-gray-600">
         {p.tipo === "entrega" && e
-          ? `Entrega${e.localidade ? " (" + e.localidade + ")" : ""}: ${e.rua}, ${e.numero} - ${e.bairro}, ${e.cidade}${
+          ? `Entrega${e.localidade ? " (" + e.localidade + ")" : ""}: ${[
+              e.rua,
+              e.numero,
+              e.bairro,
+              e.cidade,
+            ]
+              .map((v) => (v ?? "").trim())
+              .filter((v) => v && v !== "-")
+              .join(", ")}${
               e.complemento ? " (" + e.complemento + ")" : ""
             }${e.referencia ? " · Ref.: " + e.referencia : ""}`
           : "Retirada no local"}

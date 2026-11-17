@@ -88,12 +88,7 @@ export default function Cardapio({
   const [vis, setVis] = useState({
     nome: "",
     telefone: "",
-    rua: "",
-    numero: "",
-    bairro: "",
-    cidade: "",
-    complemento: "",
-    referencia: "",
+    endereco: "",
   });
     // ---- Carrinho persistente (guardado neste navegador, por loja) ----
   const chaveCarrinho = `carrinho:${loja.id}`;
@@ -184,16 +179,6 @@ export default function Cardapio({
       )}`
     : null;
 
-  // Visitante sem conta: pré-seleciona a localidade pelo bairro digitado.
-  useEffect(() => {
-    if (logado !== false || localidades.length === 0) return;
-    const norm = (t: string) =>
-      t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-    if (!vis.bairro.trim()) return;
-    const achada = localidades.find((l) => norm(l.nome) === norm(vis.bairro));
-    if (achada) setLocalidadeId(achada.id);
-  }, [vis.bairro, logado, localidades]);
-
   const todos = categorias.flatMap((c) => c.produtos);
 
   function alterar(produto: Produto, delta: number) {
@@ -240,11 +225,8 @@ export default function Cardapio({
         setErro("Digite o telefone com DDD, para a loja falar com você.");
         return;
       }
-      if (
-        tipo === "entrega" &&
-        !(vis.rua.trim() && vis.numero.trim() && vis.bairro.trim() && vis.cidade.trim())
-      ) {
-        setErro("Preencha rua, número, bairro e cidade.");
+      if (tipo === "entrega" && vis.endereco.trim().length < 5) {
+        setErro("Escreva o endereço de entrega (rua, número e ponto de referência).");
         return;
       }
       if (!aceitou) {
@@ -270,12 +252,12 @@ export default function Cardapio({
         telefone: vis.telefone.trim(),
       };
       if (tipo === "entrega") {
-        meta.rua = vis.rua.trim();
-        meta.numero = vis.numero.trim();
-        meta.bairro = vis.bairro.trim();
-        meta.cidade = vis.cidade.trim();
-        meta.complemento = vis.complemento.trim();
-        meta.referencia = vis.referencia.trim();
+        // um campo só: o texto vai em "rua"; os demais ficam com "-" (a loja já
+        // recebe a localidade escolhida e o painel esconde os "-")
+        meta.rua = vis.endereco.trim();
+        meta.numero = "-";
+        meta.bairro = localidade?.nome ?? "-";
+        meta.cidade = "-";
       }
       // o gatilho do banco cria clientes/enderecos a partir destes dados
       const { data: au, error: ea } = await supabase.auth.signInAnonymously({
@@ -592,42 +574,11 @@ export default function Cardapio({
                 {tipo === "entrega" && logado === false && (
                   <div className="space-y-2">
                     <p className="text-sm font-semibold">Endereço de entrega</p>
-                    <input
-                      value={vis.rua}
-                      onChange={(e) => setVis({ ...vis, rua: e.target.value })}
-                      placeholder="Rua"
-                      className="w-full rounded-lg border bg-white p-3 text-black"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        value={vis.numero}
-                        onChange={(e) => setVis({ ...vis, numero: e.target.value })}
-                        placeholder="Número"
-                        className="w-full rounded-lg border bg-white p-3 text-black"
-                      />
-                      <input
-                        value={vis.bairro}
-                        onChange={(e) => setVis({ ...vis, bairro: e.target.value })}
-                        placeholder="Bairro"
-                        className="w-full rounded-lg border bg-white p-3 text-black"
-                      />
-                    </div>
-                    <input
-                      value={vis.cidade}
-                      onChange={(e) => setVis({ ...vis, cidade: e.target.value })}
-                      placeholder="Cidade"
-                      className="w-full rounded-lg border bg-white p-3 text-black"
-                    />
-                    <input
-                      value={vis.complemento}
-                      onChange={(e) => setVis({ ...vis, complemento: e.target.value })}
-                      placeholder="Complemento (opcional)"
-                      className="w-full rounded-lg border bg-white p-3 text-black"
-                    />
-                    <input
-                      value={vis.referencia}
-                      onChange={(e) => setVis({ ...vis, referencia: e.target.value })}
-                      placeholder="Ponto de referência (opcional)"
+                    <textarea
+                      value={vis.endereco}
+                      onChange={(e) => setVis({ ...vis, endereco: e.target.value })}
+                      placeholder="Rua, número e ponto de referência"
+                      rows={2}
                       className="w-full rounded-lg border bg-white p-3 text-black"
                     />
                   </div>
