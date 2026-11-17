@@ -75,6 +75,7 @@ export default function Cardapio({
   const [enderecos, setEnderecos] = useState<Endereco[]>([]);
   const [finalizando, setFinalizando] = useState(false);
   const [verCarrinho, setVerCarrinho] = useState(false);
+  const [busca, setBusca] = useState("");
   const [tipo, setTipo] = useState<"entrega" | "retirada">("entrega");
   const [enderecoId, setEnderecoId] = useState("");
   const [localidadeId, setLocalidadeId] = useState("");
@@ -181,6 +182,27 @@ export default function Cardapio({
     : null;
 
   const todos = categorias.flatMap((c) => c.produtos);
+
+  // ---- Busca e atalhos de categoria ----
+  const semAcento = (t: string) =>
+    t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const ativos = todos.filter((p) => p.ativo);
+  const mostrarBusca = ativos.length >= 12; // loja pequena não precisa de busca
+  const termo = semAcento(busca);
+  const combina = (p: Produto) =>
+    !termo || semAcento(`${p.nome} ${p.descricao ?? ""}`).includes(termo);
+  const categoriasComProdutos = categorias.filter((c) =>
+    c.produtos.some((p) => p.ativo)
+  );
+  const semResultado =
+    termo !== "" &&
+    !categorias.some((c) => c.produtos.some((p) => p.ativo && combina(p)));
+
+  function irParaCategoria(id: string) {
+    document
+      .getElementById(`cat-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function alterar(produto: Produto, delta: number) {
     setCarrinho((atual) => {
@@ -462,14 +484,66 @@ export default function Cardapio({
           )}
         </header>
 
+        {/* Busca */}
+        {mostrarBusca && (
+          <div className="mt-6 px-6">
+            <div className="relative">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar no cardápio"
+                inputMode="search"
+                enterKeyHint="search"
+                aria-label="Buscar no cardápio"
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-10 text-black shadow-sm"
+              />
+              {busca && (
+                <button
+                  onClick={() => setBusca("")}
+                  aria-label="Limpar busca"
+                  className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-gray-500 hover:bg-gray-100"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Atalhos de categoria (ficam fixos no topo ao rolar) */}
+        {!termo && categoriasComProdutos.length > 1 && (
+          <nav
+            aria-label="Categorias"
+            className="sticky top-0 z-30 mt-4 border-b border-gray-200 bg-gray-50/95 backdrop-blur"
+          >
+            <ul className="flex gap-2 overflow-x-auto px-6 py-2.5">
+              {categoriasComProdutos.map((c) => (
+                <li key={c.id} className="shrink-0">
+                  <button
+                    onClick={() => irParaCategoria(c.id)}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-100"
+                  >
+                    {c.nome}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+
         {/* Produtos */}
         <div className="px-6">
+          {semResultado && (
+            <p className="mt-8 text-center text-gray-500">
+              Nenhum produto encontrado para &quot;{busca.trim()}&quot;.
+            </p>
+          )}
           {categorias.map((cat) => {
-            const produtos = cat.produtos.filter((p) => p.ativo);
+            const produtos = cat.produtos.filter((p) => p.ativo && combina(p));
             if (produtos.length === 0) return null;
 
             return (
-              <section key={cat.id} className="mt-8">
+              <section key={cat.id} id={`cat-${cat.id}`} className="mt-8 scroll-mt-16">
                 <h2 className="mb-3 border-l-4 border-[var(--cor)] pl-3 text-xl font-semibold">
                   {cat.nome}
                 </h2>
