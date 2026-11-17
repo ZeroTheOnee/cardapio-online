@@ -74,6 +74,7 @@ export default function Cardapio({
   const [logado, setLogado] = useState<boolean | null>(null);
   const [enderecos, setEnderecos] = useState<Endereco[]>([]);
   const [finalizando, setFinalizando] = useState(false);
+  const [verCarrinho, setVerCarrinho] = useState(false);
   const [tipo, setTipo] = useState<"entrega" | "retirada">("entrega");
   const [enderecoId, setEnderecoId] = useState("");
   const [localidadeId, setLocalidadeId] = useState("");
@@ -212,6 +213,29 @@ export default function Cardapio({
     ? Math.min(...localidades.map((l) => l.taxa))
     : loja.taxa_entrega;
   const total = subtotal + taxa;
+
+  function removerItem(id: string) {
+    setCarrinho((atual) => {
+      const nova = { ...atual };
+      delete nova[id];
+      return nova;
+    });
+  }
+
+  function limparCarrinho() {
+    if (!confirm("Tirar todos os itens do carrinho?")) return;
+    setCarrinho({});
+  }
+
+  // carrinho vazio: fecha a lista e o checkout
+  useEffect(() => {
+    if (totalItens > 0) return;
+    const t = setTimeout(() => {
+      setVerCarrinho(false);
+      setFinalizando(false);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [totalItens]);
 
   async function confirmar() {
     setErro("");
@@ -533,6 +557,59 @@ export default function Cardapio({
       {totalItens > 0 && (
         <div className="fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto border-t bg-white p-4 shadow-lg">
           <div className="mx-auto max-w-2xl">
+            {(verCarrinho || finalizando) && (
+              <div className="mb-3 border-b pb-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="font-semibold">Seu pedido</p>
+                  <button
+                    onClick={limparCarrinho}
+                    className="text-sm text-red-600 underline"
+                  >
+                    Limpar carrinho
+                  </button>
+                </div>
+                <ul className="space-y-3">
+                  {itens.map((i) => (
+                    <li key={i.id} className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{i.nome}</p>
+                        <p className="text-sm text-gray-600">
+                          {dinheiro(i.preco * i.quantidade)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => alterar(i, -1)}
+                          aria-label={`Menos ${i.nome}`}
+                          className="h-8 w-8 rounded-full border text-lg leading-none"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center text-sm">
+                          {i.quantidade}
+                        </span>
+                        <button
+                          onClick={() => alterar(i, 1)}
+                          disabled={i.quantidade >= i.estoque}
+                          aria-label={`Mais ${i.nome}`}
+                          className={`h-8 w-8 rounded-full text-lg leading-none ${botaoTema}`}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removerItem(i.id)}
+                          aria-label={`Remover ${i.nome}`}
+                          className="ml-1 text-gray-400"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {finalizando && (logado || convidado) && (
               <div className="mb-4 space-y-3 border-b pb-4">
                 {logado === false && (
@@ -661,10 +738,20 @@ export default function Cardapio({
               </div>
             )}
 
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>
-                {totalItens} {totalItens === 1 ? "item" : "itens"}
-              </span>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              {finalizando ? (
+                <span>
+                  {totalItens} {totalItens === 1 ? "item" : "itens"}
+                </span>
+              ) : (
+                <button
+                  onClick={() => setVerCarrinho((v) => !v)}
+                  className="font-medium underline"
+                >
+                  🛒 {totalItens} {totalItens === 1 ? "item" : "itens"} ·{" "}
+                  {verCarrinho ? "Esconder carrinho ▼" : "Ver carrinho ▲"}
+                </button>
+              )}
               <span>Subtotal {dinheiro(subtotal)}</span>
             </div>
             {tipo === "entrega" && (
