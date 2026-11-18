@@ -29,7 +29,7 @@ export default async function Pedido({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone)"
+      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone, nome_pix)"
     )
     .eq("id", id)
     .single();
@@ -42,6 +42,7 @@ export default async function Pedido({
     nome: string;
     slug: string;
     telefone: string | null;
+    nome_pix: string | null;
   } | null;
 
   const emAndamento =
@@ -63,7 +64,7 @@ export default async function Pedido({
   // Pix copia e cola com o valor do pedido (se a chave for reconhecida)
   const brCode =
     chavePix && loja
-      ? gerarBrCode({ chave: chavePix, valor: Number(pedido.total), nome: loja.nome })
+      ? gerarBrCode({ chave: chavePix, valor: Number(pedido.total), nome: loja.nome_pix || loja.nome })
       : null;
 
   const fone = loja?.telefone?.replace(/\D/g, "") ?? "";
@@ -115,6 +116,18 @@ export default async function Pedido({
           <p className="mt-1 text-sm text-gray-600">
             Valor: <strong>{dinheiro(pedido.total)}</strong>
           </p>
+
+          {chavePix && loja?.nome_pix && (
+            <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900">
+              <p>
+                Quem recebe: <strong>{loja.nome_pix}</strong>
+              </p>
+              <p className="mt-1 text-xs">
+                Na hora de pagar, confira se o nome mostrado pelo seu banco é
+                esse. Se for diferente, não pague e fale com a loja.
+              </p>
+            </div>
+          )}
 
           {chavePix ? (
             <>
