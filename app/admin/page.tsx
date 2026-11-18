@@ -40,6 +40,8 @@ export default async function Admin() {
     { data: pedidos },
     { data: pagamento },
     { data: localidades },
+    { data: gruposBrutos },
+    { data: vinculos },
   ] = await Promise.all([
     supabase
       .from("categorias")
@@ -69,7 +71,22 @@ export default async function Admin() {
       .select("id, nome, taxa, ativo")
       .eq("loja_id", loja.id)
       .order("nome"),
+    supabase
+      .from("grupos_opcao")
+      .select("id, nome, minimo, maximo, ordem, opcoes(id, nome, preco_extra, ativo, ordem)")
+      .eq("loja_id", loja.id)
+      .order("ordem"),
+    supabase
+      .from("produto_grupos")
+      .select("produto_id, grupo_id")
+      .eq("loja_id", loja.id),
   ]);
+
+  // opções de cada grupo na ordem escolhida pelo dono
+  const grupos = (gruposBrutos ?? []).map((g) => ({
+    ...g,
+    opcoes: [...(g.opcoes ?? [])].sort((a, b) => a.ordem - b.ordem),
+  }));
 
   return (
     <Painel
@@ -79,6 +96,8 @@ export default async function Admin() {
       pedidos={pedidos ?? []}
       chavePix={pagamento?.chave_pix ?? ""}
       localidades={localidades ?? []}
+      grupos={grupos}
+      vinculos={vinculos ?? []}
     />
   );
 }

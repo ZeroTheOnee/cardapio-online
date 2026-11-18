@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
 import ProdutoCard from "./ProdutoCard";
 import Opcoes from "./Opcoes";
+import Grupos, { type GrupoLib } from "./Grupos";
 import Entrega from "./Entrega";
 import Categorias from "./Categorias";
 import Conta from "./Conta";
@@ -130,6 +131,8 @@ export default function Painel({
   pedidos,
   chavePix,
   localidades,
+  grupos,
+  vinculos,
 }: {
   loja: Loja;
   categorias: Categoria[];
@@ -137,6 +140,8 @@ export default function Painel({
   pedidos: Pedido[];
   chavePix: string;
   localidades: Localidade[];
+  grupos: GrupoLib[];
+  vinculos: { produto_id: string; grupo_id: string }[];
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -465,6 +470,16 @@ export default function Painel({
             onSalvo={() => router.refresh()}
           />
 
+          <Grupos
+            lojaId={loja.id}
+            grupos={grupos}
+            uso={vinculos.reduce<Record<string, number>>((acc, v) => {
+              acc[v.grupo_id] = (acc[v.grupo_id] ?? 0) + 1;
+              return acc;
+            }, {})}
+            onSalvo={() => router.refresh()}
+          />
+
           <NovoProduto
             lojaId={loja.id}
             categorias={categorias}
@@ -476,7 +491,15 @@ export default function Painel({
             {produtos.map((p) => (
               <div key={p.id}>
                 <ProdutoCard lojaId={loja.id} p={p} onSalvo={() => router.refresh()} />
-                <Opcoes lojaId={loja.id} produtoId={p.id} produtoNome={p.nome} />
+                <Opcoes
+                  lojaId={loja.id}
+                  produtoId={p.id}
+                  grupos={grupos}
+                  vinculados={vinculos
+                    .filter((v) => v.produto_id === p.id)
+                    .map((v) => v.grupo_id)}
+                  onSalvo={() => router.refresh()}
+                />
               </div>
             ))}
           </div>

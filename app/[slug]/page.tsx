@@ -23,10 +23,23 @@ export default async function Pagina({
   const { data: categorias } = await supabase
     .from("categorias")
     .select(
-      "id, nome, produtos(id, nome, descricao, preco, estoque, ativo, imagem_url, grupos_opcao(id, nome, minimo, maximo, ordem, opcoes(id, nome, preco_extra, ativo, ordem)))"
+      "id, nome, produtos(id, nome, descricao, preco, estoque, ativo, imagem_url, produto_grupos(grupos_opcao(id, nome, minimo, maximo, ordem, opcoes(id, nome, preco_extra, ativo, ordem))))"
     )
     .eq("loja_id", loja.id)
     .order("ordem");
+
+  // O banco devolve produto_grupos -> grupos_opcao; o cardápio espera grupos_opcao direto no produto.
+  type Rel = { grupos_opcao: unknown };
+  const categoriasComGrupos = (categorias ?? []).map((c) => ({
+    ...c,
+    produtos: (c.produtos ?? []).map((p) => {
+      const { produto_grupos, ...resto } = p;
+      const grupos = ((produto_grupos ?? []) as Rel[]).flatMap((pg) =>
+        Array.isArray(pg.grupos_opcao) ? pg.grupos_opcao : pg.grupos_opcao ? [pg.grupos_opcao] : []
+      );
+      return { ...resto, grupos_opcao: grupos };
+    }),
+  }));
 
   const { data: localidades } = await supabase
     .from("localidades")
@@ -39,7 +52,7 @@ export default async function Pagina({
     <Cardapio
       slug={slug}
       loja={loja}
-      categorias={categorias ?? []}
+      categorias={categoriasComGrupos}
       localidades={localidades ?? []}
     />
   );
