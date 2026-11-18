@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { GrupoLib } from "./Grupos";
+import ApagarProduto from "./ApagarProduto";
 
 function descricao(g: GrupoLib) {
   const ativas = g.opcoes.filter((o) => o.ativo).length;
@@ -21,12 +22,14 @@ function descricao(g: GrupoLib) {
 export default function Opcoes({
   lojaId,
   produtoId,
+  produtoNome,
   grupos,
   vinculados,
   onSalvo,
 }: {
   lojaId: string;
   produtoId: string;
+  produtoNome: string;
   grupos: GrupoLib[];
   vinculados: string[];
   onSalvo: () => void;
@@ -62,12 +65,15 @@ export default function Opcoes({
 
   return (
     <div className="-mt-1 rounded-b-lg border border-t-0 bg-gray-50 px-4 py-2">
-      <button onClick={() => setAberto((v) => !v)} className="text-sm font-medium underline">
-        {aberto ? "Fechar opções ▲" : "Opções e adicionais ▼"}
-        {!aberto && total > 0 && (
-          <span className="ml-1 font-normal text-gray-500">({total} no produto)</span>
-        )}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button onClick={() => setAberto((v) => !v)} className="text-sm font-medium underline">
+          {aberto ? "Fechar opções ▲" : "Opções e adicionais ▼"}
+          {!aberto && total > 0 && (
+            <span className="ml-1 font-normal text-gray-500">({total} no produto)</span>
+          )}
+        </button>
+        <ApagarProduto produtoId={produtoId} produtoNome={produtoNome} onSalvo={onSalvo} />
+      </div>
 
       {aberto && (
         <div className="mt-3 space-y-2 pb-2">

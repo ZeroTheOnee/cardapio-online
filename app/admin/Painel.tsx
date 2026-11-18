@@ -494,6 +494,7 @@ export default function Painel({
                 <Opcoes
                   lojaId={loja.id}
                   produtoId={p.id}
+                  produtoNome={p.nome}
                   grupos={grupos}
                   vinculados={vinculos
                     .filter((v) => v.produto_id === p.id)
