@@ -10,6 +10,7 @@ import Categorias from "./Categorias";
 import Conta from "./Conta";
 import Contato from "./Contato";
 import NomeLoja from "./NomeLoja";
+import NomePix from "./NomePix";
 import Avisos from "./Avisos";
 
 type Loja = {
@@ -18,6 +19,7 @@ type Loja = {
   slug: string;
   aberta: boolean;
   telefone: string | null;
+  nome_pix: string | null;
   taxa_entrega: number;
   cor_principal: string;
   logo_url: string | null;
@@ -489,6 +491,13 @@ export default function Painel({
           <ConfigPix
             lojaId={loja.id}
             chavePix={chavePix}
+            onSalvo={() => router.refresh()}
+          />
+          <NomePix
+            key={loja.nome_pix ?? ""}
+            lojaId={loja.id}
+            nomePix={loja.nome_pix}
+            nomeLoja={loja.nome}
             onSalvo={() => router.refresh()}
           />
         </section>
