@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Aparencia from "./Aparencia";
 import ProdutoCard from "./ProdutoCard";
+import Opcoes from "./Opcoes";
 import Entrega from "./Entrega";
 import Categorias from "./Categorias";
 import Conta from "./Conta";
@@ -58,7 +59,11 @@ type Pedido = {
   } | null;
   criado_em: string;
   clientes: Cliente | Cliente[] | null;
-  itens_pedido: { nome: string; quantidade: number }[];
+  itens_pedido: {
+    nome: string;
+    quantidade: number;
+    opcoes?: { grupo: string; nome: string; preco: number }[];
+  }[];
 };
 
 const campo = "w-full rounded-lg border bg-white p-2 text-black";
@@ -469,7 +474,10 @@ export default function Painel({
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Seus produtos</h2>
             {produtos.map((p) => (
-              <ProdutoCard lojaId={loja.id} key={p.id} p={p} onSalvo={() => router.refresh()} />
+              <div key={p.id}>
+                <ProdutoCard lojaId={loja.id} p={p} onSalvo={() => router.refresh()} />
+                <Opcoes lojaId={loja.id} produtoId={p.id} produtoNome={p.nome} />
+              </div>
             ))}
           </div>
         </section>
@@ -595,6 +603,11 @@ function CartaoPedido({
         {p.itens_pedido.map((i, n) => (
           <li key={n}>
             {i.quantidade}x {i.nome}
+            {i.opcoes && i.opcoes.length > 0 && (
+              <span className="block pl-5 text-xs text-gray-600">
+                {i.opcoes.map((o) => o.nome).join(", ")}
+              </span>
+            )}
           </li>
         ))}
       </ul>

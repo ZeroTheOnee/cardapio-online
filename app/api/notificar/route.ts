@@ -37,11 +37,16 @@ export async function POST(req: Request) {
   }
 
   const [{ data: itens }, { data: cliente }] = await Promise.all([
-    admin.from("itens_pedido").select("nome, quantidade").eq("pedido_id", pedido.id),
+    admin.from("itens_pedido").select("nome, quantidade, opcoes").eq("pedido_id", pedido.id),
     admin.from("clientes").select("nome").eq("id", pedido.cliente_id).maybeSingle(),
   ]);
 
-  const lista = (itens ?? []).map((i) => `${i.quantidade}x ${i.nome}`).join(", ");
+  const lista = (itens ?? [])
+    .map((i) => {
+      const ops = (i.opcoes as { nome: string }[] | null) ?? [];
+      return `${i.quantidade}x ${i.nome}${ops.length ? " (" + ops.map((o) => o.nome).join(", ") + ")" : ""}`;
+    })
+    .join(", ");
   const forma =
     pedido.forma_pagamento === "pix"
       ? "Pix"

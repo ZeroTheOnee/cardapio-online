@@ -12,7 +12,44 @@ type Produto = {
   estoque: number;
   ativo: boolean;
   imagem_url: string | null;
+  grupos_opcao?: GrupoOpcao[];
 };
+
+// Opções e adicionais do produto (ex.: Tamanho, Adicionais)
+type OpcaoItem = {
+  id: string;
+  nome: string;
+  preco_extra: number;
+  ativo: boolean;
+  ordem: number;
+};
+type GrupoOpcao = {
+  id: string;
+  nome: string;
+  minimo: number;
+  maximo: number;
+  ordem: number;
+  opcoes: OpcaoItem[];
+};
+
+// Uma linha do carrinho: o mesmo produto com opções diferentes vira linhas separadas.
+type Linha = { chave: string; produto_id: string; opcoes: string[]; qtd: number };
+
+const chaveLinha = (produtoId: string, opcoes: string[]) =>
+  [produtoId, ...[...opcoes].sort()].join("|");
+
+// só grupos com ao menos uma opção ativa, na ordem escolhida pelo dono
+function gruposDe(p: Produto): GrupoOpcao[] {
+  return (p.grupos_opcao ?? [])
+    .map((g) => ({
+      ...g,
+      opcoes: [...(g.opcoes ?? [])]
+        .filter((o) => o.ativo)
+        .sort((a, b) => a.ordem - b.ordem),
+    }))
+    .filter((g) => g.opcoes.length > 0)
+    .sort((a, b) => a.ordem - b.ordem);
+}
 
 type Categoria = { id: string; nome: string; produtos: Produto[] };
 
@@ -70,7 +107,11 @@ export default function Cardapio({
   const router = useRouter();
   const [supabase] = useState(() => createClient());
 
-  const [carrinho, setCarrinho] = useState<Record<string, number>>({});
+  const [carrinho, setCarrinho] = useState<Linha[]>([]);
+  // janela "escolha as opções" do produto
+  const [escolhendo, setEscolhendo] = useState<Produto | null>(null);
+  const [sel, setSel] = useState<Record<string, string[]>>({});
+  const [erroOpcoes, setErroOpcoes] = useState("");
   const [logado, setLogado] = useState<boolean | null>(null);
   const [enderecos, setEnderecos] = useState<Endereco[]>([]);
   const [finalizando, setFinalizando] = useState(false);
@@ -101,14 +142,52 @@ export default function Cardapio({
       try {
         const salvo = window.localStorage.getItem(chaveCarrinho);
         if (salvo) {
-          const dados = JSON.parse(salvo) as Record<string, unknown>;
-          const limpo: Record<string, number> = {};
-          for (const p of categorias.flatMap((c) => c.produtos)) {
-            const qtd = Number(dados[p.id]);
+          const dados = JSON.parse(salvo) as unknown;
+          const prods = new Map(
+            categorias.flatMap((c) => c.produtos).map((p) => [p.id, p])
+          );
+          const usado: Record<string, number> = {};
+          const limpo: Linha[] = [];
+          // aceita o formato novo (lista de linhas) e o antigo ({ produtoId: qtd })
+          const candidatas: { produto_id: string; opcoes: string[]; qtd: number }[] =
+            Array.isArray(dados)
+              ? dados.map((d) => ({
+                  produto_id: String(d?.produto_id),
+                  opcoes: Array.isArray(d?.opcoes) ? d.opcoes.map(String) : [],
+                  qtd: Number(d?.qtd),
+                }))
+              : dados && typeof dados === "object"
+              ? Object.entries(dados as Record<string, unknown>).map(([id, q]) => ({
+                  produto_id: id,
+                  opcoes: [],
+                  qtd: Number(q),
+                }))
+              : [];
+          for (const c of candidatas) {
+            const p = prods.get(c.produto_id);
             // descarta item que saiu do cardápio ou ficou sem estoque
-            if (p.ativo && p.estoque > 0 && Number.isInteger(qtd) && qtd > 0) {
-              limpo[p.id] = Math.min(qtd, p.estoque);
-            }
+            if (!p || !p.ativo || p.estoque <= 0) continue;
+            if (!Number.isInteger(c.qtd) || c.qtd <= 0) continue;
+            // descarta se alguma opção escolhida não existe mais ou foi pausada
+            const validas = new Set(gruposDe(p).flatMap((g) => g.opcoes.map((o) => o.id)));
+            if (!c.opcoes.every((id) => validas.has(id))) continue;
+            // produto com opção obrigatória precisa ter as escolhas completas
+            const completo = gruposDe(p).every(
+              (g) =>
+                c.opcoes.filter((id) => g.opcoes.some((o) => o.id === id)).length >=
+                Math.min(g.minimo, g.opcoes.length)
+            );
+            if (!completo) continue;
+            const resta = p.estoque - (usado[p.id] ?? 0);
+            const qtd = Math.min(c.qtd, resta);
+            if (qtd <= 0) continue;
+            usado[p.id] = (usado[p.id] ?? 0) + qtd;
+            limpo.push({
+              chave: chaveLinha(p.id, c.opcoes),
+              produto_id: p.id,
+              opcoes: c.opcoes,
+              qtd,
+            });
           }
           setCarrinho(limpo);
         }
@@ -126,7 +205,7 @@ export default function Cardapio({
   useEffect(() => {
     if (!carrinhoCarregado) return;
     try {
-      if (Object.keys(carrinho).length > 0) {
+      if (carrinho.length > 0) {
         window.localStorage.setItem(chaveCarrinho, JSON.stringify(carrinho));
       } else {
         window.localStorage.removeItem(chaveCarrinho);
@@ -203,24 +282,108 @@ export default function Cardapio({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function alterar(produto: Produto, delta: number) {
+  const mapaProdutos = new Map(todos.map((p) => [p.id, p]));
+  const qtdDoProduto = (id: string) =>
+    carrinho.filter((l) => l.produto_id === id).reduce((n, l) => n + l.qtd, 0);
+
+  // soma ou tira unidades de uma linha (respeitando o estoque do produto)
+  function mudarLinha(
+    produto: Produto,
+    opcoes: string[],
+    delta: number
+  ) {
+    const chave = chaveLinha(produto.id, opcoes);
     setCarrinho((atual) => {
-      const qtd = (atual[produto.id] ?? 0) + delta;
-      const nova = { ...atual };
-      if (qtd <= 0) {
-        delete nova[produto.id];
-      } else if (qtd <= produto.estoque) {
-        nova[produto.id] = qtd;
+      const noProduto = atual
+        .filter((l) => l.produto_id === produto.id)
+        .reduce((n, l) => n + l.qtd, 0);
+      if (delta > 0 && noProduto + delta > produto.estoque) return atual;
+      const existe = atual.find((l) => l.chave === chave);
+      if (!existe) {
+        return delta > 0
+          ? [...atual, { chave, produto_id: produto.id, opcoes, qtd: delta }]
+          : atual;
       }
-      return nova;
+      const qtd = existe.qtd + delta;
+      return qtd <= 0
+        ? atual.filter((l) => l.chave !== chave)
+        : atual.map((l) => (l.chave === chave ? { ...l, qtd } : l));
     });
   }
 
-  const itens = todos
-    .filter((p) => carrinho[p.id])
-    .map((p) => ({ ...p, quantidade: carrinho[p.id] }));
+  // "+" no produto: sem opções entra direto; com opções abre a janela de escolha
+  function aoAdicionar(produto: Produto) {
+    if (gruposDe(produto).length === 0) {
+      mudarLinha(produto, [], 1);
+      return;
+    }
+    setSel({});
+    setErroOpcoes("");
+    setEscolhendo(produto);
+  }
 
-  const subtotal = itens.reduce((soma, i) => soma + i.preco * i.quantidade, 0);
+  function alternarOpcao(g: GrupoOpcao, id: string) {
+    setErroOpcoes("");
+    setSel((s) => {
+      const atual = s[g.id] ?? [];
+      if (atual.includes(id)) return { ...s, [g.id]: atual.filter((x) => x !== id) };
+      if (g.maximo === 1) return { ...s, [g.id]: [id] };
+      if (atual.length >= g.maximo) return s;
+      return { ...s, [g.id]: [...atual, id] };
+    });
+  }
+
+  const extraEscolhido = escolhendo
+    ? gruposDe(escolhendo)
+        .flatMap((g) => g.opcoes.filter((o) => (sel[g.id] ?? []).includes(o.id)))
+        .reduce((n, o) => n + o.preco_extra, 0)
+    : 0;
+
+  function confirmarOpcoes() {
+    if (!escolhendo) return;
+    const grupos = gruposDe(escolhendo);
+    for (const g of grupos) {
+      const preciso = Math.min(g.minimo, g.opcoes.length);
+      if ((sel[g.id] ?? []).length < preciso) {
+        setErroOpcoes(
+          preciso === 1
+            ? `Escolha uma opção em "${g.nome}".`
+            : `Escolha pelo menos ${preciso} opções em "${g.nome}".`
+        );
+        return;
+      }
+    }
+    if (qtdDoProduto(escolhendo.id) >= escolhendo.estoque) {
+      setErroOpcoes("Não há mais estoque deste produto.");
+      return;
+    }
+    const ids = grupos.flatMap((g) => sel[g.id] ?? []);
+    mudarLinha(escolhendo, ids, 1);
+    setEscolhendo(null);
+  }
+
+  // linhas prontas para exibir (nome, opções escolhidas e preço com extras)
+  const itens = carrinho.flatMap((l) => {
+    const p = mapaProdutos.get(l.produto_id);
+    if (!p) return [];
+    const escolhidas = gruposDe(p)
+      .flatMap((g) => g.opcoes)
+      .filter((o) => l.opcoes.includes(o.id));
+    const unit = p.preco + escolhidas.reduce((n, o) => n + o.preco_extra, 0);
+    return [
+      {
+        chave: l.chave,
+        produto: p,
+        nome: p.nome,
+        opcoesTexto: escolhidas.map((o) => o.nome).join(", "),
+        opcoes: l.opcoes,
+        unit,
+        quantidade: l.qtd,
+      },
+    ];
+  });
+
+  const subtotal = itens.reduce((soma, i) => soma + i.unit * i.quantidade, 0);
   const totalItens = itens.reduce((soma, i) => soma + i.quantidade, 0);
   // Se a loja cadastrou localidades, a taxa vem da localidade escolhida;
   // senão vale a taxa única da loja. (O servidor recalcula de qualquer forma.)
@@ -235,17 +398,13 @@ export default function Cardapio({
     : loja.taxa_entrega;
   const total = subtotal + taxa;
 
-  function removerItem(id: string) {
-    setCarrinho((atual) => {
-      const nova = { ...atual };
-      delete nova[id];
-      return nova;
-    });
+  function removerItem(chave: string) {
+    setCarrinho((atual) => atual.filter((l) => l.chave !== chave));
   }
 
   function limparCarrinho() {
     if (!confirm("Tirar todos os itens do carrinho?")) return;
-    setCarrinho({});
+    setCarrinho([]);
   }
 
   // carrinho vazio: fecha a lista e o checkout
@@ -340,7 +499,11 @@ export default function Cardapio({
       p_endereco_id: tipo === "entrega" ? enderecoFinal : null,
       p_forma_pagamento: forma,
       p_observacao: obs || null,
-      p_itens: itens.map((i) => ({ produto_id: i.id, quantidade: i.quantidade })),
+      p_itens: itens.map((i) => ({
+        produto_id: i.produto.id,
+        quantidade: i.quantidade,
+        opcoes: i.opcoes,
+      })),
       p_localidade_id:
         tipo === "entrega" && temLocalidades ? localidadeId : null,
     });
@@ -363,7 +526,7 @@ export default function Cardapio({
 
   return (
     <div style={tema} className="min-h-screen bg-gray-50 text-gray-900">
-      <main className="mx-auto max-w-2xl pb-28">
+      <main className="mx-auto max-w-2xl pb-44">
         {/* Capa */}
         <div className="h-40 w-full overflow-hidden bg-[var(--cor)]">
           {loja.capa_url && (
@@ -547,7 +710,8 @@ export default function Cardapio({
                 </h2>
                 <ul className="space-y-3">
                   {produtos.map((p) => {
-                    const qtd = carrinho[p.id] ?? 0;
+                    const qtd = qtdDoProduto(p.id);
+                    const comOpcoes = gruposDe(p).length > 0;
                     const esgotado = p.estoque <= 0;
 
                     return (
@@ -585,10 +749,10 @@ export default function Cardapio({
                           </span>
                         ) : (
                           <div className="flex items-center gap-3">
-                            {qtd > 0 && (
+                            {qtd > 0 && !comOpcoes && (
                               <>
                                 <button
-                                  onClick={() => alterar(p, -1)}
+                                  onClick={() => mudarLinha(p, [], -1)}
                                   className="h-9 w-9 rounded-full border text-lg"
                                 >
                                   −
@@ -596,12 +760,18 @@ export default function Cardapio({
                                 <span className="w-4 text-center">{qtd}</span>
                               </>
                             )}
+                            {qtd > 0 && comOpcoes && (
+                              <span className="text-xs text-gray-500">{qtd} no carrinho</span>
+                            )}
                             <button
-                              onClick={() => alterar(p, 1)}
+                              onClick={() => aoAdicionar(p)}
                               disabled={qtd >= p.estoque}
-                              className={`h-9 w-9 rounded-full text-lg ${botaoTema}`}
+                              aria-label={`Adicionar ${p.nome}`}
+                              className={`${
+                                comOpcoes ? "rounded-full px-4 text-sm font-semibold" : "w-9 rounded-full text-lg"
+                              } h-9 ${botaoTema}`}
                             >
-                              +
+                              {comOpcoes ? "Escolher" : "+"}
                             </button>
                           </div>
                         )}
@@ -643,17 +813,20 @@ export default function Cardapio({
                 </div>
                 <ul className="max-h-44 space-y-3 overflow-y-auto pr-1">
                   {itens.map((i) => (
-                    <li key={i.id} className="flex items-center gap-3 rounded-xl bg-gray-50 p-2.5">
+                    <li key={i.chave} className="flex items-center gap-3 rounded-xl bg-gray-50 p-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{i.nome}</p>
+                        {i.opcoesTexto && (
+                          <p className="text-xs text-gray-600">{i.opcoesTexto}</p>
+                        )}
                         <p className="mt-0.5 text-xs text-gray-500">
-                          {dinheiro(i.preco)} cada <span className="px-1">·</span>
-                          {dinheiro(i.preco * i.quantidade)}
+                          {dinheiro(i.unit)} cada <span className="px-1">·</span>
+                          {dinheiro(i.unit * i.quantidade)}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <button
-                          onClick={() => alterar(i, -1)}
+                          onClick={() => mudarLinha(i.produto, i.opcoes, -1)}
                           aria-label={`Menos ${i.nome}`}
                           className="h-8 w-8 rounded-full border border-gray-200 bg-white text-lg leading-none hover:bg-gray-100"
                         >
@@ -663,15 +836,15 @@ export default function Cardapio({
                           {i.quantidade}
                         </span>
                         <button
-                          onClick={() => alterar(i, 1)}
-                          disabled={i.quantidade >= i.estoque}
+                          onClick={() => mudarLinha(i.produto, i.opcoes, 1)}
+                          disabled={qtdDoProduto(i.produto.id) >= i.produto.estoque}
                           aria-label={`Mais ${i.nome}`}
                           className={`h-8 w-8 rounded-full text-lg leading-none ${botaoTema}`}
                         >
                           +
                         </button>
                         <button
-                          onClick={() => removerItem(i.id)}
+                          onClick={() => removerItem(i.chave)}
                           aria-label={`Remover ${i.nome}`}
                           className="ml-1 grid h-8 w-8 place-items-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600"
                         >
@@ -862,6 +1035,99 @@ export default function Cardapio({
                 {enviando ? "Enviando..." : "Confirmar pedido"}
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Janela de opções e adicionais */}
+      {escolhendo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setEscolhendo(null)}
+        >
+          <div
+            role="dialog"
+            aria-label={`Opções de ${escolhendo.nome}`}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-gray-900 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold">{escolhendo.nome}</p>
+                {escolhendo.descricao && (
+                  <p className="text-sm text-gray-500">{escolhendo.descricao}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setEscolhendo(null)}
+                aria-label="Fechar"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-gray-500 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            {gruposDe(escolhendo).map((g) => {
+              const escolhidas = sel[g.id] ?? [];
+              const obrigatorio = Math.min(g.minimo, g.opcoes.length) > 0;
+              return (
+                <fieldset key={g.id} className="mt-5">
+                  <legend className="flex w-full items-center justify-between">
+                    <span className="font-semibold">{g.nome}</span>
+                    <span className="text-xs text-gray-500">
+                      {obrigatorio ? "Obrigatório · " : "Opcional · "}
+                      {g.maximo === 1 ? "escolha 1" : `até ${g.maximo}`}
+                    </span>
+                  </legend>
+                  <ul className="mt-2 space-y-2">
+                    {g.opcoes.map((o) => {
+                      const marcado = escolhidas.includes(o.id);
+                      const cheio = !marcado && g.maximo > 1 && escolhidas.length >= g.maximo;
+                      return (
+                        <li key={o.id}>
+                          <button
+                            type="button"
+                            onClick={() => alternarOpcao(g, o.id)}
+                            disabled={cheio}
+                            aria-pressed={marcado}
+                            className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left disabled:opacity-40 ${
+                              marcado ? "border-[var(--cor)] bg-gray-50" : "border-gray-200"
+                            }`}
+                          >
+                            <span
+                              className={`grid h-5 w-5 shrink-0 place-items-center border text-xs ${
+                                g.maximo === 1 ? "rounded-full" : "rounded"
+                              } ${
+                                marcado
+                                  ? "border-[var(--cor)] bg-[var(--cor)] text-[var(--cor-texto)]"
+                                  : "border-gray-400 bg-white text-transparent"
+                              }`}
+                            >
+                              ✓
+                            </span>
+                            <span className="flex-1">{o.nome}</span>
+                            {o.preco_extra > 0 && (
+                              <span className="text-sm text-gray-600">
+                                + {dinheiro(o.preco_extra)}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </fieldset>
+              );
+            })}
+
+            {erroOpcoes && <p className="mt-3 text-sm text-red-600">{erroOpcoes}</p>}
+
+            <button
+              onClick={confirmarOpcoes}
+              className={`mt-5 w-full rounded-xl py-3.5 font-semibold shadow-sm ${botaoTema}`}
+            >
+              Adicionar · {dinheiro(escolhendo.preco + extraEscolhido)}
+            </button>
           </div>
         </div>
       )}

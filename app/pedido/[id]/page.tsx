@@ -6,7 +6,12 @@ import { gerarBrCode } from "@/lib/pix";
 import LinhaDoTempo from "./LinhaDoTempo";
 import AtualizarSozinho from "./AtualizarSozinho";
 
-type Item = { nome: string; preco_unitario: number; quantidade: number };
+type Item = {
+  nome: string;
+  preco_unitario: number;
+  quantidade: number;
+  opcoes?: { grupo: string; nome: string; preco: number }[];
+};
 
 const FORMA: Record<string, string> = {
   pix: "Pix",
@@ -29,7 +34,7 @@ export default async function Pedido({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade), lojas(nome, slug, telefone, nome_pix)"
+      "id, status, tipo, criado_em, subtotal, taxa_entrega, total, forma_pagamento, pagamento_status, itens_pedido(nome, preco_unitario, quantidade, opcoes), lojas(nome, slug, telefone, nome_pix)"
     )
     .eq("id", id)
     .single();
@@ -215,6 +220,11 @@ export default async function Pedido({
           <li key={n} className="flex justify-between">
             <span>
               {i.quantidade}x {i.nome}
+              {i.opcoes && i.opcoes.length > 0 && (
+                <span className="block text-xs text-gray-600">
+                  {i.opcoes.map((o) => o.nome).join(", ")}
+                </span>
+              )}
             </span>
             <span>{dinheiro(i.preco_unitario * i.quantidade)}</span>
           </li>

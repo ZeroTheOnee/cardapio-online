@@ -54,7 +54,7 @@ export default async function Admin() {
     supabase
       .from("pedidos")
       .select(
-        "id, status, tipo, total, forma_pagamento, pagamento_status, observacao, endereco_entrega, criado_em, clientes(nome, telefone), itens_pedido(nome, quantidade)"
+        "id, status, tipo, total, forma_pagamento, pagamento_status, observacao, endereco_entrega, criado_em, clientes(nome, telefone), itens_pedido(nome, quantidade, opcoes)"
       )
       .eq("loja_id", loja.id)
       .order("criado_em", { ascending: false })
