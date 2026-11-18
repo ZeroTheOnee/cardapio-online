@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import CopiarPix from "./CopiarPix";
+import { gerarBrCode } from "@/lib/pix";
 import LinhaDoTempo from "./LinhaDoTempo";
 import AtualizarSozinho from "./AtualizarSozinho";
 
@@ -59,6 +60,12 @@ export default async function Pedido({
     chavePix = (data as string | null) ?? null;
   }
 
+  // Pix copia e cola com o valor do pedido (se a chave for reconhecida)
+  const brCode =
+    chavePix && loja
+      ? gerarBrCode({ chave: chavePix, valor: Number(pedido.total), nome: loja.nome })
+      : null;
+
   const fone = loja?.telefone?.replace(/\D/g, "") ?? "";
   const linkZap = fone
     ? `https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(
@@ -111,13 +118,34 @@ export default async function Pedido({
 
           {chavePix ? (
             <>
+              {brCode && (
+                <>
+                  <p className="mt-3 text-sm font-semibold">Pix copia e cola</p>
+                  <p
+                    style={{ backgroundColor: "#ffffff", color: "#000000" }}
+                    className="mt-1 max-h-24 overflow-y-auto break-all rounded border-2 border-gray-400 p-3 font-mono text-xs select-all"
+                  >
+                    {brCode}
+                  </p>
+                  <CopiarPix texto={brCode} rotulo="Copiar código Pix" destaque />
+                  <p className="mt-2 text-xs text-gray-500">
+                    No app do banco: Pix → Pix Copia e Cola → cole o código. O
+                    valor já vem preenchido. Confira se ele é{" "}
+                    {dinheiro(pedido.total)} antes de pagar.
+                  </p>
+                </>
+              )}
+
+              <p className="mt-4 text-sm font-semibold">
+                {brCode ? "Ou pague usando a chave" : "Chave Pix da loja"}
+              </p>
               <p
                 style={{ backgroundColor: "#ffffff", color: "#000000" }}
-                className="mt-3 break-all rounded border-2 border-gray-400 p-3 font-mono text-base font-semibold select-all"
+                className="mt-1 break-all rounded border-2 border-gray-400 p-3 font-mono text-base font-semibold select-all"
               >
                 {chavePix}
               </p>
-              <CopiarPix chave={chavePix} />
+              <CopiarPix texto={chavePix} />
             </>
           ) : (
             <p className="mt-3 text-sm text-red-600">
