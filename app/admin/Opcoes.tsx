@@ -83,6 +83,10 @@ export default function Opcoes({
       setMsg("Digite o nome do grupo (ex.: Tamanho, Adicionais).");
       return;
     }
+    if (nome.length > 60) {
+      setMsg("O nome do grupo pode ter no máximo 60 caracteres.");
+      return;
+    }
     const proxima = grupos && grupos.length > 0 ? Math.max(...grupos.map((g) => g.ordem)) + 1 : 1;
     // padrão: escolha opcional, várias opções (serve para adicionais); o dono ajusta depois
     const { error } = await supabase.from("grupos_opcao").insert({
@@ -150,6 +154,7 @@ export default function Opcoes({
           <form onSubmit={novoGrupo} className="flex gap-2">
             <input
               name="nome"
+              maxLength={60}
               placeholder="Novo grupo (ex.: Tamanho, Adicionais)"
               className={campo}
             />
@@ -198,8 +203,8 @@ function LinhaGrupo({
 
   async function salvar() {
     const n = nome.trim();
-    if (!n) {
-      setMsg("O nome não pode ficar vazio.");
+    if (!n || n.length > 60) {
+      setMsg("O nome do grupo precisa ter de 1 a 60 caracteres.");
       return;
     }
     const m = Math.max(1, Math.min(20, Math.floor(Number(max) || 1)));
@@ -244,8 +249,8 @@ function LinhaGrupo({
     e.preventDefault();
     const n = novaNome.trim();
     const preco = lerPreco(novaPreco);
-    if (!n) {
-      setMsg("Digite o nome da opção.");
+    if (!n || n.length > 60) {
+      setMsg("O nome da opção precisa ter de 1 a 60 caracteres.");
       return;
     }
     if (preco === null) {
@@ -291,7 +296,7 @@ function LinhaGrupo({
             ▼
           </button>
         </div>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} />
+        <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} className={campo} />
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -333,6 +338,7 @@ function LinhaGrupo({
         <input
           value={novaNome}
           onChange={(e) => setNovaNome(e.target.value)}
+          maxLength={60}
           placeholder="Opção (ex.: Bacon)"
           className={campo}
         />
@@ -361,8 +367,8 @@ function LinhaOpcao({ o, onMudou }: { o: Opcao; onMudou: () => void }) {
   async function salvar() {
     const n = nome.trim();
     const p = lerPreco(preco);
-    if (!n || p === null) {
-      setMsg("Confira o nome e o valor.");
+    if (!n || n.length > 60 || p === null) {
+      setMsg("Confira o nome (1 a 60 caracteres) e o valor.");
       return;
     }
     const { error } = await supabase
@@ -398,7 +404,7 @@ function LinhaOpcao({ o, onMudou }: { o: Opcao; onMudou: () => void }) {
 
   return (
     <li className={`flex items-center gap-2 ${o.ativo ? "" : "opacity-50"}`}>
-      <input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} />
+      <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} className={campo} />
       <input
         value={preco}
         onChange={(e) => setPreco(e.target.value)}
