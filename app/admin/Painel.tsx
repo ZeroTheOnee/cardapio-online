@@ -14,12 +14,17 @@ import Contato from "./Contato";
 import NomeLoja from "./NomeLoja";
 import NomePix from "./NomePix";
 import Avisos from "./Avisos";
+import Horarios from "./Horarios";
+import { statusHorario, type Horarios as TipoHorarios } from "@/lib/horario";
 
 type Loja = {
   id: string;
   nome: string;
   slug: string;
   aberta: boolean;
+  usa_horario: boolean;
+  horarios: TipoHorarios;
+  fuso: string;
   telefone: string | null;
   nome_pix: string | null;
   taxa_entrega: number;
@@ -151,6 +156,20 @@ export default function Painel({
     "pedidos"
   );
   const [aberta, setAberta] = useState(loja.aberta);
+  // relógio para mostrar o status do horário (só no navegador, para não divergir do servidor)
+  const [agoraHorario, setAgoraHorario] = useState<Date | null>(null);
+  useEffect(() => {
+    const t0 = setTimeout(() => setAgoraHorario(new Date()), 0);
+    const t = setInterval(() => setAgoraHorario(new Date()), 30000);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, []);
+  const statusDoHorario =
+    loja.usa_horario && agoraHorario
+      ? statusHorario(loja.horarios ?? {}, loja.fuso, agoraHorario)
+      : null;
 
   // atualiza a lista de pedidos sozinho a cada 15 segundos (em qualquer aba,
   // para o aviso de pedido novo funcionar mesmo fora da aba Pedidos)
@@ -385,6 +404,20 @@ export default function Painel({
         </div>
       </div>
 
+      {loja.usa_horario && (
+        <p className="mt-3 text-sm text-gray-600">
+          ⏰ Horário automático ligado
+          {statusDoHorario &&
+            (statusDoHorario.aberto
+              ? ` · agora dentro do horário (fecha às ${statusDoHorario.fechaAs})`
+              : statusDoHorario.abreTexto
+              ? ` · agora fora do horário (abre ${statusDoHorario.abreTexto})`
+              : " · agora fora do horário")}
+          . O botão &quot;Loja aberta/fechada&quot; pausa tudo, mesmo dentro do horário. Os
+          horários ficam na aba Aparência.
+        </p>
+      )}
+
       {novos > 0 && (
         <button
           onClick={() => {
@@ -545,6 +578,13 @@ export default function Painel({
           <Contato
             lojaId={loja.id}
             telefone={loja.telefone}
+            onSalvo={() => router.refresh()}
+          />
+          <Horarios
+            key={`${loja.usa_horario}-${JSON.stringify(loja.horarios)}`}
+            lojaId={loja.id}
+            usa={loja.usa_horario}
+            horarios={loja.horarios ?? {}}
             onSalvo={() => router.refresh()}
           />
           <Aparencia loja={loja} />

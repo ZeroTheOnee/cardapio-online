@@ -10,14 +10,30 @@ export default async function Admin() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/entrar?loja=admin");
 
-  const { data: loja } = await supabase
+  const { data: loja, error: erroLoja } = await supabase
     .from("lojas")
     .select(
-        "id, nome, slug, aberta, telefone, nome_pix, taxa_entrega, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
+        "id, nome, slug, aberta, usa_horario, horarios, fuso, telefone, nome_pix, taxa_entrega, cor_principal, logo_url, capa_url, descricao, instagram, endereco_texto"
       )
     .eq("dono_id", user.id)
     .limit(1)
     .maybeSingle();
+
+  // erro de verdade (ex.: coluna que falta no banco) não pode parecer "conta sem loja"
+  if (erroLoja) {
+    return (
+      <main className="mx-auto max-w-md p-6">
+        <h1 className="text-2xl font-bold">Não foi possível carregar a loja</h1>
+        <p className="mt-3 text-gray-600">
+          Houve um erro ao ler os dados da loja. Se você acabou de atualizar o sistema,
+          confira se todos os arquivos .sql de atualização foram executados no Supabase.
+        </p>
+        <p className="mt-3 rounded-lg bg-gray-100 p-3 text-sm text-gray-800">
+          {erroLoja.message}
+        </p>
+      </main>
+    );
+  }
 
   if (!loja) {
     return (

@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import InstalarApp from "./InstalarApp";
+import {
+  DIAS,
+  lojaAbertaAgora,
+  statusHorario,
+  textoDoDia,
+  type Horarios,
+} from "@/lib/horario";
 
 type Produto = {
   id: string;
@@ -60,6 +67,9 @@ type Loja = {
   telefone: string | null;
   taxa_entrega: number;
   aberta: boolean;
+  usa_horario: boolean;
+  horarios: Horarios;
+  fuso: string;
   aceita_pix: boolean;
   cor_principal: string;
   logo_url: string | null;
@@ -99,11 +109,13 @@ export default function Cardapio({
   loja,
   categorias,
   localidades,
+  agoraServidor,
 }: {
   slug: string;
   loja: Loja;
   categorias: Categoria[];
   localidades: Localidade[];
+  agoraServidor: string;
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -118,6 +130,23 @@ export default function Cardapio({
   const [finalizando, setFinalizando] = useState(false);
   const [verCarrinho, setVerCarrinho] = useState(false);
   const [busca, setBusca] = useState("");
+  // relógio do cardápio: começa com a hora do servidor (sem divergir na hidratação) e
+  // confere a cada 30 s, para a loja "fechar" sozinha na tela quando o horário acabar
+  const [agora, setAgora] = useState(() => new Date(agoraServidor));
+  useEffect(() => {
+    const t = setInterval(() => setAgora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+  const aberto = lojaAbertaAgora(
+    loja.aberta,
+    loja.usa_horario,
+    loja.horarios ?? {},
+    loja.fuso,
+    agora
+  );
+  const statusDoHorario = loja.usa_horario
+    ? statusHorario(loja.horarios ?? {}, loja.fuso, agora)
+    : null;
   const [tipo, setTipo] = useState<"entrega" | "retirada">("entrega");
   const [enderecoId, setEnderecoId] = useState("");
   const [localidadeId, setLocalidadeId] = useState("");
@@ -569,12 +598,16 @@ export default function Cardapio({
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span
               className={`rounded-full px-3 py-1 font-medium ${
-                loja.aberta
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
+                aberto ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
               }`}
             >
-              {loja.aberta ? "Aberto agora" : "Fechado no momento"}
+              {aberto
+                ? statusDoHorario?.fechaAs
+                  ? `Aberto agora · fecha às ${statusDoHorario.fechaAs}`
+                  : "Aberto agora"
+                : loja.aberta && statusDoHorario?.abreTexto
+                ? `Fechado · abre ${statusDoHorario.abreTexto}`
+                : "Fechado no momento"}
             </span>
             <span className="rounded-full bg-gray-200 px-3 py-1">
               {temLocalidades
@@ -595,6 +628,20 @@ export default function Cardapio({
 
           {loja.endereco_texto && (
             <p className="mt-2 text-sm text-gray-500">{loja.endereco_texto}</p>
+          )}
+
+          {loja.usa_horario && (
+            <details className="mt-2 text-sm text-gray-600">
+              <summary className="cursor-pointer underline">Ver horários de funcionamento</summary>
+              <ul className="mt-2 space-y-0.5">
+                {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                  <li key={d} className="flex justify-between gap-4">
+                    <span>{DIAS[d]}</span>
+                    <span>{textoDoDia(loja.horarios?.[String(d)])}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1018,9 +1065,12 @@ export default function Cardapio({
               <span>{dinheiro(total)}</span>
             </div>}
 
-            {!loja.aberta ? (
+            {!aberto ? (
               <p className="mt-3 text-center text-sm text-red-600">
-                A loja está fechada no momento.
+                A loja está fechada no momento
+                {loja.aberta && statusDoHorario?.abreTexto
+                  ? `. Abre ${statusDoHorario.abreTexto}.`
+                  : "."}
               </p>
             ) : !finalizando ? (
               <button
