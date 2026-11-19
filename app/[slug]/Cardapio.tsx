@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import InstalarApp from "./InstalarApp";
 
 type Produto = {
   id: string;
@@ -596,16 +597,19 @@ export default function Cardapio({
             <p className="mt-2 text-sm text-gray-500">{loja.endereco_texto}</p>
           )}
 
-          {zapLoja && (
-            <a
-              href={zapLoja}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white"
-            >
-              💬 Falar com a loja no WhatsApp
-            </a>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {zapLoja && (
+              <a
+                href={zapLoja}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                💬 Falar com a loja no WhatsApp
+              </a>
+            )}
+            <InstalarApp />
+          </div>
 
           {logado === false && (
             <a
