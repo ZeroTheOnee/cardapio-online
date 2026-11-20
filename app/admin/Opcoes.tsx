@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { GrupoLib } from "./Grupos";
 import ApagarProduto from "./ApagarProduto";
 import DuplicarProduto from "./DuplicarProduto";
+import RenomearProduto from "./RenomearProduto";
 
 function descricao(g: GrupoLib) {
   const ativas = g.opcoes.filter((o) => o.ativo).length;
@@ -74,6 +75,7 @@ export default function Opcoes({
           )}
         </button>
         <span className="inline-flex flex-wrap items-center gap-2">
+          <RenomearProduto produtoId={produtoId} produtoNome={produtoNome} onSalvo={onSalvo} />
           <DuplicarProduto lojaId={lojaId} produtoId={produtoId} onSalvo={onSalvo} />
           <ApagarProduto produtoId={produtoId} produtoNome={produtoNome} onSalvo={onSalvo} />
         </span>
