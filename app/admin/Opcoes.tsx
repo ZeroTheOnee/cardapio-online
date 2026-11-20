@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { GrupoLib } from "./Grupos";
 import ApagarProduto from "./ApagarProduto";
+import DuplicarProduto from "./DuplicarProduto";
 
 function descricao(g: GrupoLib) {
   const ativas = g.opcoes.filter((o) => o.ativo).length;
@@ -72,7 +73,10 @@ export default function Opcoes({
             <span className="ml-1 font-normal text-gray-500">({total} no produto)</span>
           )}
         </button>
-        <ApagarProduto produtoId={produtoId} produtoNome={produtoNome} onSalvo={onSalvo} />
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <DuplicarProduto lojaId={lojaId} produtoId={produtoId} onSalvo={onSalvo} />
+          <ApagarProduto produtoId={produtoId} produtoNome={produtoNome} onSalvo={onSalvo} />
+        </span>
       </div>
 
       {aberto && (
