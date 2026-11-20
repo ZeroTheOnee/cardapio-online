@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import InstalarApp from "./InstalarApp";
+import NovoEndereco from "./NovoEndereco";
 import {
   DIAS,
   lojaAbertaAgora,
@@ -88,6 +89,13 @@ type Endereco = {
   bairro: string;
   cidade: string;
 };
+
+// "-" é o que o pedido sem conta grava nos campos que não pergunta; não mostrar
+function rotuloEndereco(e: Endereco) {
+  const ok = (t: string) => t.trim() !== "" && t.trim() !== "-";
+  const ruaNum = ok(e.numero) ? `${e.rua}, ${e.numero}` : e.rua;
+  return [ruaNum, e.bairro, e.cidade].filter(ok).join(" - ");
+}
 
 function dinheiro(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -230,6 +238,79 @@ export default function Cardapio({
     // roda só ao abrir a página
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveCarrinho]);
+
+  // "Pedir de novo" (vindo de /meus-pedidos): monta o carrinho com os itens do pedido
+  // antigo, conferindo o que ainda existe, tem estoque e tem as mesmas opções
+  const [avisoRepetir, setAvisoRepetir] = useState("");
+  useEffect(() => {
+    if (!carrinhoCarregado) return;
+    const t = setTimeout(() => {
+      try {
+        const bruto = window.localStorage.getItem(`repetir:${loja.id}`);
+        if (!bruto) return;
+        window.localStorage.removeItem(`repetir:${loja.id}`);
+        const lista = JSON.parse(bruto) as {
+          produto_id: string;
+          qtd: number;
+          opcoes: { grupo: string; nome: string }[];
+        }[];
+        if (!Array.isArray(lista)) return;
+        const prods = new Map(
+          categorias.flatMap((c) => c.produtos).map((p) => [p.id, p])
+        );
+        const faltou: string[] = [];
+        const novo = [...carrinho];
+        const usadoDe = (id: string) =>
+          novo.filter((l) => l.produto_id === id).reduce((soma, l) => soma + l.qtd, 0);
+        for (const it of lista) {
+          const p = prods.get(String(it.produto_id));
+          if (!p || !p.ativo || p.estoque <= 0) {
+            faltou.push(p?.nome ?? "um item");
+            continue;
+          }
+          const grupos = gruposDe(p);
+          const ids: string[] = [];
+          let ok = true;
+          for (const o of Array.isArray(it.opcoes) ? it.opcoes : []) {
+            const op = grupos
+              .find((g) => g.nome === o.grupo)
+              ?.opcoes.find((x) => x.nome === o.nome);
+            if (op) ids.push(op.id);
+            else ok = false;
+          }
+          const completo = grupos.every(
+            (g) =>
+              ids.filter((id) => g.opcoes.some((o) => o.id === id)).length >=
+              Math.min(g.minimo, g.opcoes.length)
+          );
+          if (!ok || !completo) {
+            faltou.push(p.nome);
+            continue;
+          }
+          const qtd = Math.min(Number(it.qtd) || 0, p.estoque - usadoDe(p.id));
+          if (qtd <= 0) {
+            faltou.push(p.nome);
+            continue;
+          }
+          const chave = chaveLinha(p.id, ids);
+          const ex = novo.findIndex((l) => l.chave === chave);
+          if (ex >= 0) novo[ex] = { ...novo[ex], qtd: novo[ex].qtd + qtd };
+          else novo.push({ chave, produto_id: p.id, opcoes: ids, qtd });
+        }
+        setCarrinho(novo);
+        setAvisoRepetir(
+          faltou.length > 0
+            ? `Alguns itens não estão disponíveis como antes: ${[...new Set(faltou)].join(", ")}. Confira o carrinho.`
+            : "Itens do pedido anterior adicionados. Confira o carrinho."
+        );
+        if (novo.length > 0) setVerCarrinho(true);
+      } catch {
+        /* ignora */
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrinhoCarregado]);
 
   // a cada mudança, guarda o carrinho
   useEffect(() => {
@@ -630,6 +711,12 @@ export default function Cardapio({
             <p className="mt-2 text-sm text-gray-500">{loja.endereco_texto}</p>
           )}
 
+          {avisoRepetir && (
+            <p className="mt-2 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-900">
+              {avisoRepetir}
+            </p>
+          )}
+
           {loja.usa_horario && (
             <details className="mt-2 text-sm text-gray-600">
               <summary className="cursor-pointer underline">Ver horários de funcionamento</summary>
@@ -970,10 +1057,22 @@ export default function Cardapio({
                     )}
                     {enderecos.map((e) => (
                       <option key={e.id} value={e.id}>
-                        {e.rua}, {e.numero} - {e.bairro}, {e.cidade}
+                        {rotuloEndereco(e)}
                       </option>
                     ))}
                   </select>
+                )}
+
+                {tipo === "entrega" && logado && (
+                  <NovoEndereco
+                    cidadePadrao={
+                      enderecos.find((e) => e.cidade && e.cidade !== "-")?.cidade ?? ""
+                    }
+                    onCriado={(e) => {
+                      setEnderecos((lista) => [...lista, e]);
+                      setEnderecoId(e.id);
+                    }}
+                  />
                 )}
 
                 {tipo === "entrega" && temLocalidades && (

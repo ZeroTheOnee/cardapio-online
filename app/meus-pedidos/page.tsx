@@ -2,9 +2,15 @@ import Link from "next/link";
 import BotaoSair from "./BotaoSair";
 import { createClient } from "@/lib/supabase/server";
 import AtualizarSozinho from "../pedido/[id]/AtualizarSozinho";
+import PedirDeNovo, { type ItemRepetir } from "./PedirDeNovo";
 
-type Item = { nome: string; quantidade: number };
-type LojaRel = { nome: string; slug: string };
+type Item = {
+  nome: string;
+  quantidade: number;
+  produto_id: string | null;
+  opcoes: { grupo: string; nome: string }[] | null;
+};
+type LojaRel = { id: string; nome: string; slug: string };
 
 const STATUS: Record<string, { texto: string; cor: string }> = {
   recebido: { texto: "Pedido recebido", cor: "bg-blue-100 text-blue-800" },
@@ -41,7 +47,7 @@ export default async function MeusPedidos() {
   const { data: pedidos } = await supabase
     .from("pedidos")
     .select(
-      "id, status, tipo, total, criado_em, itens_pedido(nome, quantidade), lojas(nome, slug)"
+      "id, status, tipo, total, criado_em, itens_pedido(nome, quantidade, produto_id, opcoes), lojas(id, nome, slug)"
     )
     .eq("cliente_id", user.id)
     .order("criado_em", { ascending: false })
@@ -77,7 +83,7 @@ export default async function MeusPedidos() {
           const resumo = itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", ");
 
           return (
-            <li key={p.id}>
+            <li key={p.id} className="space-y-2">
               <Link
                 href={`/pedido/${p.id}`}
                 className="block rounded-lg border p-4 hover:bg-gray-50"
@@ -101,6 +107,19 @@ export default async function MeusPedidos() {
                 <p className="mt-2 text-sm text-gray-700">{resumo}</p>
                 <p className="mt-2 font-bold">{dinheiro(p.total)}</p>
               </Link>
+              {loja && p.status !== "cancelado" && (
+                <PedirDeNovo
+                  slug={loja.slug}
+                  lojaId={loja.id}
+                  itens={itens.map(
+                    (i): ItemRepetir => ({
+                      produto_id: i.produto_id,
+                      quantidade: i.quantidade,
+                      opcoes: i.opcoes ?? [],
+                    })
+                  )}
+                />
+              )}
             </li>
           );
         })}
