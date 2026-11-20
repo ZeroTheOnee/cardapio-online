@@ -250,7 +250,8 @@ export default function Cardapio({
         if (!bruto) return;
         window.localStorage.removeItem(`repetir:${loja.id}`);
         const lista = JSON.parse(bruto) as {
-          produto_id: string;
+          produto_id: string | null;
+          nome?: string;
           qtd: number;
           opcoes: { grupo: string; nome: string }[];
         }[];
@@ -263,9 +264,15 @@ export default function Cardapio({
         const usadoDe = (id: string) =>
           novo.filter((l) => l.produto_id === id).reduce((soma, l) => soma + l.qtd, 0);
         for (const it of lista) {
-          const p = prods.get(String(it.produto_id));
+          // acha pelo id; se o produto foi apagado/recriado, tenta pelo nome
+          const norm = (t: string) => t.trim().toLowerCase();
+          const p =
+            (it.produto_id ? prods.get(String(it.produto_id)) : undefined) ??
+            [...prods.values()].find(
+              (x) => x.ativo && it.nome && norm(x.nome) === norm(it.nome)
+            );
           if (!p || !p.ativo || p.estoque <= 0) {
-            faltou.push(p?.nome ?? "um item");
+            faltou.push(p?.nome ?? it.nome ?? "um item");
             continue;
           }
           const grupos = gruposDe(p);
@@ -298,8 +305,12 @@ export default function Cardapio({
           else novo.push({ chave, produto_id: p.id, opcoes: ids, qtd });
         }
         setCarrinho(novo);
+        const adicionados = novo.length > carrinho.length ||
+          novo.some((l, i) => l.qtd !== carrinho[i]?.qtd);
         setAvisoRepetir(
-          faltou.length > 0
+          !adicionados
+            ? `Nenhum item deste pedido está disponível agora (${[...new Set(faltou)].join(", ") || "pedido sem itens"}).`
+            : faltou.length > 0
             ? `Alguns itens não estão disponíveis como antes: ${[...new Set(faltou)].join(", ")}. Confira o carrinho.`
             : "Itens do pedido anterior adicionados. Confira o carrinho."
         );
@@ -934,7 +945,16 @@ export default function Cardapio({
       </main>
 
       {/* Barra do carrinho */}
-      {totalItens > 0 && (
+      {totalItens === 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur">
+          <div className="mx-auto flex max-w-2xl items-center justify-between px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-sm text-gray-600 sm:px-6">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-2 font-semibold text-gray-800">
+              🛒 Carrinho vazio
+            </span>
+            <span className="font-medium text-gray-700">{dinheiro(0)}</span>
+          </div>
+        </div>
+      ) : (
         <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur ${verCarrinho || finalizando ? "max-h-[88dvh] overflow-y-auto rounded-t-3xl" : "rounded-t-2xl"}`}>
           <div className="mx-auto max-w-2xl px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
             {(verCarrinho || finalizando) && <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 export type ItemRepetir = {
   produto_id: string | null;
+  nome: string;
   quantidade: number;
   opcoes: { grupo: string; nome: string }[];
 };
@@ -23,10 +24,9 @@ export default function PedirDeNovo({
 
   function repetir() {
     try {
-      const lista = itens
-        .filter((i) => i.produto_id)
-        .map((i) => ({
+      const lista = itens.map((i) => ({
           produto_id: i.produto_id,
+          nome: i.nome,
           qtd: i.quantidade,
           opcoes: Array.isArray(i.opcoes) ? i.opcoes : [],
         }));

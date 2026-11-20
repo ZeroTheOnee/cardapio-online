@@ -114,6 +114,7 @@ export default async function MeusPedidos() {
                   itens={itens.map(
                     (i): ItemRepetir => ({
                       produto_id: i.produto_id,
+                      nome: i.nome,
                       quantidade: i.quantidade,
                       opcoes: i.opcoes ?? [],
                     })
