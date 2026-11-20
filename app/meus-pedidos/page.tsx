@@ -107,7 +107,7 @@ export default async function MeusPedidos() {
                 <p className="mt-2 text-sm text-gray-700">{resumo}</p>
                 <p className="mt-2 font-bold">{dinheiro(p.total)}</p>
               </Link>
-              {loja && p.status !== "cancelado" && (
+              {loja && (
                 <PedirDeNovo
                   slug={loja.slug}
                   lojaId={loja.id}
