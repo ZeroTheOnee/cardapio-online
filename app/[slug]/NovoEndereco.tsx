@@ -9,14 +9,20 @@ export type EnderecoNovo = {
   numero: string;
   bairro: string;
   cidade: string;
+  localidade_padrao?: string | null;
 };
+
+type LocalidadeOpt = { id: string; nome: string; taxa: number };
 
 // Cadastro de mais um endereço de entrega, dentro do checkout (cliente logado).
 export default function NovoEndereco({
   cidadePadrao,
+  localidades,
   onCriado,
 }: {
   cidadePadrao: string;
+  // quando a loja tem localidades de entrega, o endereço já guarda a escolhida
+  localidades?: LocalidadeOpt[];
   onCriado: (e: EnderecoNovo) => void;
 }) {
   const [supabase] = useState(() => createClient());
@@ -28,6 +34,7 @@ export default function NovoEndereco({
     cidade: cidadePadrao,
     complemento: "",
     referencia: "",
+    localidade: "",
   });
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -39,6 +46,10 @@ export default function NovoEndereco({
     const cidade = f.cidade.trim();
     if (!rua || !numero || !bairro || !cidade) {
       setErro("Preencha rua, número, bairro e cidade.");
+      return;
+    }
+    if (localidades && localidades.length > 0 && !f.localidade) {
+      setErro("Escolha a localidade da entrega.");
       return;
     }
     setSalvando(true);
@@ -59,8 +70,9 @@ export default function NovoEndereco({
         cidade,
         complemento: f.complemento.trim() || null,
         referencia: f.referencia.trim() || null,
+        localidade_padrao: f.localidade || null,
       })
-      .select("id, rua, numero, bairro, cidade")
+      .select("id, rua, numero, bairro, cidade, localidade_padrao")
       .single();
     setSalvando(false);
     if (error || !data) {
@@ -95,6 +107,20 @@ export default function NovoEndereco({
       </div>
       <input className={campo} placeholder="Cidade" maxLength={80} value={f.cidade}
         onChange={(e) => setF({ ...f, cidade: e.target.value })} />
+      {localidades && localidades.length > 0 && (
+        <select
+          className={campo}
+          value={f.localidade}
+          onChange={(e) => setF({ ...f, localidade: e.target.value })}
+        >
+          <option value="">Localidade da entrega...</option>
+          {localidades.map((l) => (
+            <option key={l.id} value={l.nome}>
+              {l.nome} — {l.taxa.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </option>
+          ))}
+        </select>
+      )}
       <input className={campo} placeholder="Complemento (opcional)" maxLength={80}
         value={f.complemento} onChange={(e) => setF({ ...f, complemento: e.target.value })} />
       <input className={campo} placeholder="Ponto de referência (opcional)" maxLength={120}

@@ -88,6 +88,7 @@ type Endereco = {
   numero: string;
   bairro: string;
   cidade: string;
+  localidade_padrao?: string | null;
 };
 
 // "-" é o que o pedido sem conta grava nos campos que não pergunta; não mostrar
@@ -353,25 +354,83 @@ export default function Cardapio({
       setAnonimo(!!data.user.is_anonymous);
       const { data: ends } = await supabase
         .from("enderecos")
-        .select("id, rua, numero, bairro, cidade")
+        .select("id, rua, numero, bairro, cidade, localidade_padrao")
         .eq("cliente_id", data.user.id);
       setEnderecos(ends ?? []);
-      if (ends && ends.length > 0) setEnderecoId(ends[0].id);
+      if (ends && ends.length > 0) {
+        let ultimo = "";
+        try {
+          ultimo = window.localStorage.getItem(`endereco:${loja.id}`) ?? "";
+        } catch {
+          /* sem armazenamento */
+        }
+        setEnderecoId(ends.some((x) => x.id === ultimo) ? ultimo : ends[0].id);
+      }
     });
-  }, [supabase]);
+  }, [supabase, loja.id]);
 
-  // Pré-seleciona a localidade pelo bairro (ou cidade) do endereço escolhido.
-  // O cliente pode trocar a localidade na hora do pedido.
+  // Garante que sempre haja um endereço marcado enquanto existir algum na lista
   useEffect(() => {
-    if (localidades.length === 0) return;
+    if (enderecos.length === 0) return;
+    if (enderecos.some((x) => x.id === enderecoId)) return;
+    const t = setTimeout(() => setEnderecoId(enderecos[0].id), 0);
+    return () => clearTimeout(t);
+  }, [enderecos, enderecoId]);
+
+  // Pré-seleciona a localidade do endereço escolhido: primeiro a que o cliente já
+  // escolheu para este endereço (guardada neste aparelho), depois pelo bairro ou cidade
+  // (igual ou parecido). O cliente pode trocar a localidade na hora do pedido.
+  useEffect(() => {
+    if (localidades.length === 0 || !enderecoId) return;
     const e = enderecos.find((x) => x.id === enderecoId);
     if (!e) return;
-    const norm = (t: string) =>
-      t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-    const achada =
-      localidades.find((l) => norm(l.nome) === norm(e.bairro)) ??
-      localidades.find((l) => norm(l.nome) === norm(e.cidade));
-    if (achada) setLocalidadeId(achada.id);
+    const t = setTimeout(() => {
+      const nomeNorm = (t: string) =>
+        t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+      // 1º: a localidade guardada no próprio endereço (pelo nome, vale em qualquer loja)
+      if (e.localidade_padrao) {
+        const doEndereco = localidades.find(
+          (l) => nomeNorm(l.nome) === nomeNorm(e.localidade_padrao ?? "")
+        );
+        if (doEndereco) {
+          setLocalidadeId(doEndereco.id);
+          return;
+        }
+      }
+      try {
+        const salva = window.localStorage.getItem(`localidade:${enderecoId}`);
+        if (salva && localidades.some((l) => l.id === salva)) {
+          setLocalidadeId(salva);
+          return;
+        }
+      } catch {
+        /* sem armazenamento */
+      }
+      const norm = (t: string) =>
+        t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+      const parecido = (a: string, b: string) => {
+        const x = norm(a);
+        const y = norm(b);
+        if (x.length < 3 || y.length < 3) return false;
+        return x === y || x.includes(y) || y.includes(x);
+      };
+      const achada =
+        localidades.find((l) => norm(l.nome) === norm(e.bairro)) ??
+        localidades.find((l) => norm(l.nome) === norm(e.cidade)) ??
+        localidades.find((l) => parecido(l.nome, e.bairro)) ??
+        localidades.find((l) => parecido(l.nome, e.cidade));
+      let ultima = "";
+      try {
+        ultima = window.localStorage.getItem(`localidade-loja:${loja.id}`) ?? "";
+      } catch {
+        /* sem armazenamento */
+      }
+      const fallback =
+        localidades.find((l) => l.id === ultima) ??
+        (localidades.length === 1 ? localidades[0] : undefined);
+      setLocalidadeId((achada ?? fallback)?.id ?? "");
+    }, 0);
+    return () => clearTimeout(t);
   }, [enderecoId, enderecos, localidades]);
 
   const foneLoja = loja.telefone?.replace(/\D/g, "") ?? "";
@@ -789,7 +848,7 @@ export default function Cardapio({
               <a href="/meus-pedidos" className="text-sm underline">
                 Meus pedidos
               </a>
-              <a href="/meus-enderecos" className="text-sm underline">
+              <a href={`/meus-enderecos?loja=${slug}`} className="text-sm underline">
                 Meus endereços
               </a>
               <button
@@ -1092,7 +1151,14 @@ export default function Cardapio({
                 {tipo === "entrega" && logado && (
                   <select
                     value={enderecoId}
-                    onChange={(e) => setEnderecoId(e.target.value)}
+                    onChange={(e) => {
+                      setEnderecoId(e.target.value);
+                      try {
+                        window.localStorage.setItem(`endereco:${loja.id}`, e.target.value);
+                      } catch {
+                        /* ignora */
+                      }
+                    }}
                     className="w-full rounded-lg border bg-white p-3 text-black"
                   >
                     {enderecos.length === 0 && (
@@ -1117,6 +1183,7 @@ export default function Cardapio({
 
                 {tipo === "entrega" && logado && (
                   <NovoEndereco
+                    localidades={localidades}
                     cidadePadrao={
                       enderecos.find((e) => e.cidade && e.cidade !== "-")?.cidade ?? ""
                     }
@@ -1130,7 +1197,45 @@ export default function Cardapio({
                 {tipo === "entrega" && temLocalidades && (
                   <select
                     value={localidadeId}
-                    onChange={(e) => setLocalidadeId(e.target.value)}
+                    onChange={(e) => {
+                      setLocalidadeId(e.target.value);
+                      // grava no próprio endereço, para não precisar marcar de novo
+                      const escolhida = localidades.find((l) => l.id === e.target.value);
+                      if (escolhida && enderecoId) {
+                        supabase
+                          .from("enderecos")
+                          .update({ localidade_padrao: escolhida.nome })
+                          .eq("id", enderecoId)
+                          .then(({ error }) => {
+                            if (!error) {
+                              setEnderecos((lista) =>
+                                lista.map((x) =>
+                                  x.id === enderecoId
+                                    ? { ...x, localidade_padrao: escolhida.nome }
+                                    : x
+                                )
+                              );
+                            }
+                          });
+                      }
+                      // lembra a escolha para este endereço
+                      try {
+                        if (e.target.value) {
+                          window.localStorage.setItem(
+                            `localidade-loja:${loja.id}`,
+                            e.target.value
+                          );
+                          if (enderecoId) {
+                            window.localStorage.setItem(
+                              `localidade:${enderecoId}`,
+                              e.target.value
+                            );
+                          }
+                        }
+                      } catch {
+                        /* ignora */
+                      }
+                    }}
                     className="w-full rounded-lg border bg-white p-3 text-black"
                   >
                     <option value="">Localidade da entrega...</option>

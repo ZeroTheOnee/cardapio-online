@@ -2,7 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ListaEnderecos from "./ListaEnderecos";
 
-export default async function MeusEnderecos() {
+export default async function MeusEnderecos({
+  searchParams,
+}: {
+  searchParams: Promise<{ loja?: string }>;
+}) {
+  const { loja: slug } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,8 +27,32 @@ export default async function MeusEnderecos() {
 
   const { data } = await supabase
     .from("enderecos")
-    .select("id, rua, numero, bairro, cidade, complemento, referencia")
+    .select("id, rua, numero, bairro, cidade, complemento, referencia, localidade_padrao")
     .eq("cliente_id", user.id);
+
+  // vindo do cardápio de uma loja (?loja=slug): oferece as localidades de entrega dela
+  let localidades: { id: string; nome: string; taxa: number }[] = [];
+  let voltar: { href: string; texto: string } | null = null;
+  if (slug && /^[a-z0-9-]{1,60}$/.test(slug)) {
+    const { data: loja } = await supabase
+      .from("lojas")
+      .select("id, nome, slug, localidades(id, nome, taxa, ativo)")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (loja) {
+      const lista = (loja.localidades ?? []) as {
+        id: string;
+        nome: string;
+        taxa: number;
+        ativo: boolean;
+      }[];
+      localidades = lista
+        .filter((l) => l.ativo)
+        .sort((a, b) => a.nome.localeCompare(b.nome))
+        .map((l) => ({ id: l.id, nome: l.nome, taxa: Number(l.taxa) }));
+      voltar = { href: `/${loja.slug}`, texto: `← Voltar ao cardápio de ${loja.nome}` };
+    }
+  }
 
   return (
     <main className="mx-auto max-w-md p-6">
@@ -33,7 +62,12 @@ export default async function MeusEnderecos() {
           Meus pedidos
         </Link>
       </div>
-      <ListaEnderecos inicial={data ?? []} />
+      {voltar && (
+        <Link href={voltar.href} className="mt-2 inline-block text-sm underline">
+          {voltar.texto}
+        </Link>
+      )}
+      <ListaEnderecos inicial={data ?? []} localidades={localidades} />
     </main>
   );
 }

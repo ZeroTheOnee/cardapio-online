@@ -16,10 +16,35 @@ function rotulo(e: Endereco) {
   return [ruaNum, e.bairro, e.cidade].filter(ok).join(" - ");
 }
 
-export default function ListaEnderecos({ inicial }: { inicial: Endereco[] }) {
+type Localidade = { id: string; nome: string; taxa: number };
+
+export default function ListaEnderecos({
+  inicial,
+  localidades,
+}: {
+  inicial: Endereco[];
+  localidades: Localidade[];
+}) {
   const [supabase] = useState(() => createClient());
   const [lista, setLista] = useState<Endereco[]>(inicial);
   const [erro, setErro] = useState("");
+
+  // guarda a localidade de entrega no próprio endereço
+  async function definirLocalidade(e: Endereco, nome: string) {
+    setErro("");
+    const { data, error } = await supabase
+      .from("enderecos")
+      .update({ localidade_padrao: nome || null })
+      .eq("id", e.id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      setErro(error?.message ?? "Não foi possível salvar a localidade.");
+      return;
+    }
+    setLista((l) =>
+      l.map((x) => (x.id === e.id ? { ...x, localidade_padrao: nome || null } : x))
+    );
+  }
 
   async function apagar(e: Endereco) {
     if (!window.confirm(`Apagar o endereço "${rotulo(e)}"?`)) return;
@@ -56,6 +81,25 @@ export default function ListaEnderecos({ inicial }: { inicial: Endereco[] }) {
               {ok(e.referencia) && (
                 <p className="text-gray-600">Ref.: {e.referencia}</p>
               )}
+              {localidades.length > 0 ? (
+                <select
+                  value={e.localidade_padrao ?? ""}
+                  onChange={(ev) => definirLocalidade(e, ev.target.value)}
+                  className="mt-2 w-full rounded-lg border bg-white p-2 text-black"
+                >
+                  <option value="">Localidade da entrega...</option>
+                  {localidades.map((l) => (
+                    <option key={l.id} value={l.nome}>
+                      {l.nome} —{" "}
+                      {l.taxa.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                ok(e.localidade_padrao ?? null) && (
+                  <p className="text-gray-600">Localidade: {e.localidade_padrao}</p>
+                )
+              )}
             </div>
             <button onClick={() => apagar(e)} className="text-sm text-red-600 underline">
               Apagar
@@ -65,6 +109,7 @@ export default function ListaEnderecos({ inicial }: { inicial: Endereco[] }) {
       </ul>
       {erro && <p className="text-sm text-red-600">{erro}</p>}
       <NovoEndereco
+        localidades={localidades}
         cidadePadrao={lista.find((e) => ok(e.cidade))?.cidade ?? ""}
         onCriado={(e) =>
           setLista((l) => [...l, { ...e, complemento: null, referencia: null }])
