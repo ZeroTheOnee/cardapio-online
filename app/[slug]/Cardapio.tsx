@@ -539,6 +539,26 @@ export default function Cardapio({
     return () => clearTimeout(t);
   }, [totalItens]);
 
+  // apaga o endereço selecionado (os pedidos antigos guardam uma cópia, então não mudam)
+  async function apagarEndereco() {
+    const e = enderecos.find((x) => x.id === enderecoId);
+    if (!e) return;
+    if (!window.confirm(`Apagar o endereço "${rotuloEndereco(e)}"?`)) return;
+    setErro("");
+    const { data, error } = await supabase
+      .from("enderecos")
+      .delete()
+      .eq("id", e.id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      setErro(error?.message ?? "Não foi possível apagar o endereço.");
+      return;
+    }
+    const resto = enderecos.filter((x) => x.id !== e.id);
+    setEnderecos(resto);
+    setEnderecoId(resto[0]?.id ?? "");
+  }
+
   async function confirmar() {
     setErro("");
     const visitante = logado === false;
@@ -1081,6 +1101,15 @@ export default function Cardapio({
                       </option>
                     ))}
                   </select>
+                )}
+
+                {tipo === "entrega" && logado && enderecos.length > 0 && (
+                  <button
+                    onClick={apagarEndereco}
+                    className="block text-sm text-red-600 underline"
+                  >
+                    Apagar o endereço selecionado
+                  </button>
                 )}
 
                 {tipo === "entrega" && logado && (
