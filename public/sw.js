@@ -3,17 +3,20 @@ self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener("push", (event) => {
-  let d = { titulo: "PedeEasy", texto: "", url: "/admin" };
+  let d = { titulo: "PedeEasy", texto: "", url: "/admin", icon: "", tag: "", fixa: true };
   try {
     d = { ...d, ...event.data.json() };
   } catch (e) {}
   event.waitUntil(
     self.registration.showNotification(d.titulo, {
       body: d.texto,
-      icon: "/icon-192.png",
+      icon: d.icon || "/icon-192.png",
       badge: "/icon-192.png",
       vibrate: [300, 150, 300, 150, 300],
-      requireInteraction: true,
+      // aviso ao cliente: fica na tela só se "fixa"; com tag, substitui o anterior do mesmo pedido
+      requireInteraction: d.fixa !== false,
+      tag: d.tag || undefined,
+      renotify: !!d.tag,
       data: { url: d.url },
     })
   );

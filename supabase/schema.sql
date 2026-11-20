@@ -816,3 +816,27 @@ create policy "push_dono" on push_inscricoes for all
   using (exists (select 1 from lojas l where l.id = loja_id and l.dono_id = auth.uid()))
   with check (exists (select 1 from lojas l where l.id = loja_id and l.dono_id = auth.uid()));
 
+
+-- ---------------------------------------------------------------------
+-- Avisos automáticos ao cliente (migracao_avisos_cliente.sql)
+-- Uma inscrição push por aparelho E por pedido. Quem envia é o servidor (service_role).
+-- ---------------------------------------------------------------------
+create table if not exists push_pedidos (
+  id uuid primary key default gen_random_uuid(),
+  pedido_id uuid not null references pedidos(id) on delete cascade,
+  cliente_id uuid not null,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  criado_em timestamptz not null default now(),
+  unique (pedido_id, endpoint)
+);
+create index if not exists push_pedidos_pedido_idx on push_pedidos (pedido_id);
+alter table push_pedidos enable row level security;
+drop policy if exists "push_pedidos_cliente" on push_pedidos;
+create policy "push_pedidos_cliente" on push_pedidos for all
+  using (cliente_id = auth.uid())
+  with check (
+    cliente_id = auth.uid()
+    and exists (select 1 from pedidos p where p.id = pedido_id and p.cliente_id = auth.uid())
+  );

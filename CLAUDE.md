@@ -53,6 +53,8 @@ app/
   termos/page.tsx, privacidade/page.tsx  Termos de uso e Política de privacidade (LGPD) para o cliente final; rascunhos, devem ser revisados por advogado. Os dados do responsável (nome, CPF/CNPJ, e-mail, cidade) vêm de `lib/legal.ts`
   pedido/[id]/page.tsx      acompanhamento do pedido: linha do tempo, atualiza sozinha enquanto em andamento; no Pix mostra a chave, o valor e o botão de WhatsApp
   pedido/[id]/LinhaDoTempo.tsx  passos recebido > em preparo > saiu/pronto > entregue (texto muda em retirada); cancelado mostra aviso
+  pedido/[id]/AvisosPedido.tsx  botão "🔔 Avisar quando o pedido mudar" (só com o pedido em andamento): registra /sw.js, pede permissão, assina push e grava em `push_pedidos` (por pedido + aparelho; vale também para quem pediu sem conta). iPhone no Safari comum não tem push: mostra o passo a passo de instalar o app
+  api/notificar-status/route.ts  AVISO AO CLIENTE: chamada pelo Database Webhook (pedidos, UPDATE; cabeçalho x-webhook-secret = WEBHOOK_SECRET). Compara `record` e `old_record`: muda status (preparando, saiu/pronto, entregue, cancelado) ou Pix vira "pago" -> push para os aparelhos de `push_pedidos` daquele pedido (ícone da loja, tag por pedido, some sozinho); ao entregar/cancelar apaga as inscrições. Migração: `migracao_avisos_cliente.sql`
   pedido/[id]/AtualizarSozinho.tsx  cliente: chama router.refresh() a cada N s (só com a aba visível e pedido em andamento)
   meus-enderecos/page.tsx + ListaEnderecos.tsx  página "Meus endereços" (cliente logado; funciona com a loja fechada): lista, apaga e adiciona endereços (reusa `[slug]/NovoEndereco.tsx`). Links em "Meus pedidos" e no cabeçalho do cardápio
   meus-pedidos/BotaoSair.tsx  botão "Sair da conta" do cliente (signOut); também há um "Sair da conta" no cabeçalho do cardápio
@@ -95,6 +97,7 @@ Fonte da verdade: supabase/schema.sql. Resumo:
 lojas (dono_id → auth.users, slug único, taxa_entrega, aberta, aceita_pix, usa_horario, horarios (jsonb por dia da semana, 0 = domingo), fuso (padrão America/Fortaleza); aparência: cor_principal (hex #RRGGBB, validado por check), logo_url, capa_url, descricao, instagram, endereco_texto)
 lojas_pagamento (chave Pix da loja; tabela PRIVADA, só o dono lê)
 localidades (loja_id, nome, taxa, ativo; único por loja+nome). Qualquer um lê; só o dono escreve. Se a loja tem localidade ativa, a entrega exige escolher uma e a taxa é a dela; se não tem, vale lojas.taxa_entrega
+push_pedidos (pedido_id, cliente_id, endpoint, p256dh, auth; único por pedido+endpoint): aparelhos do CLIENTE inscritos nos avisos de UM pedido. RLS: o cliente só mexe nas dele e de pedido dele; quem lê para enviar é o servidor (service_role)
 push_inscricoes (loja_id, endpoint único, p256dh, auth): um registro por aparelho que ativou os avisos; RLS só do dono. Quem LÊ para enviar é o servidor com service_role
 categorias, produtos (preco, estoque, ativo, imagem_url)
 grupos_opcao (loja_id, nome, minimo, maximo, ordem), opcoes (loja_id, grupo_id, nome, preco_extra, ativo, ordem) e produto_grupos (produto_id, grupo_id, loja_id; liga os grupos aos produtos que os usam): opções e adicionais. O grupo é da LOJA (criado uma vez, reaproveitado em vários produtos). Todos leem; só o dono escreve (as políticas conferem que produto/grupo são da mesma loja). minimo 0 = opcional; maximo 1 = escolhe uma. Migração (serve para banco novo e para quem rodou a 1ª versão): migracao_opcoes.sql
@@ -181,7 +184,7 @@ Logo depois:
 
 (Feito) histórico e acompanhamento do pedido pelo cliente. Possível evolução: Supabase Realtime em vez de atualizar a cada 10 s, e passo "aceito" separado.
 (Feito) Cliente com mais de um endereço e pedir de novo.
-Aviso automático ao cliente quando o status muda: hoje é manual (botão "Avisar cliente" no WhatsApp). Evoluções: Web Push (grátis; no iPhone só com o site instalado na tela inicial) ou WhatsApp Business API (pago, modelos aprovados), possivelmente como plano mais caro.
+(Feito, falta configurar o webhook e testar no celular) Aviso automático ao cliente quando o status muda por Web Push (o botão "Avisar cliente" no WhatsApp continua). Configuração única no Supabase: Database Webhook em pedidos, evento UPDATE, POST para https://pedeeasy.com.br/api/notificar-status com o cabeçalho x-webhook-secret (mesmo valor do webhook de INSERT). Evoluções possíveis: Web Push (grátis; no iPhone só com o site instalado na tela inicial) ou WhatsApp Business API (pago, modelos aprovados), possivelmente como plano mais caro.
 (Feito) Horário de funcionamento e taxa por localidade. Possível evolução: fechar o pedido de agora para um horário agendado.
 (Domínio feito) E-mail contato@pedeeasy.com.br com encaminhamento para o Gmail do negócio e SMTP próprio no domínio; (home da plataforma feita); tela do administrador para cadastrar lojas; dono com mais de uma loja; relatórios simples.
 Decisões tomadas

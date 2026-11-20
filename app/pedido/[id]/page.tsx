@@ -5,6 +5,7 @@ import CopiarPix from "./CopiarPix";
 import { gerarBrCode } from "@/lib/pix";
 import LinhaDoTempo from "./LinhaDoTempo";
 import AtualizarSozinho from "./AtualizarSozinho";
+import AvisosPedido from "./AvisosPedido";
 
 type Item = {
   nome: string;
@@ -107,6 +108,7 @@ export default async function Pedido({
           Esta página se atualiza sozinha.
         </p>
       )}
+      {emAndamento && <AvisosPedido pedidoId={pedido.id} />}
 
       {pedido.forma_pagamento === "pix" &&
         pedido.pagamento_status === "pago" && (
