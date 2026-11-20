@@ -789,6 +789,9 @@ export default function Cardapio({
               <a href="/meus-pedidos" className="text-sm underline">
                 Meus pedidos
               </a>
+              <a href="/meus-enderecos" className="text-sm underline">
+                Meus endereços
+              </a>
               <button
                 onClick={async () => {
                   if (
